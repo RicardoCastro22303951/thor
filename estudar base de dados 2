@@ -1,0 +1,1897 @@
+-- ============================================================
+-- GUIA DE CONSULTA - MICROSOFT SQL SERVER
+-- ============================================================
+
+-- 01. Criacao de schemas
+-- 02. Criacao de tabelas
+-- 03. Tipos de dados
+-- 04. PRIMARY KEY
+-- 05. FOREIGN KEY
+-- 06. UNIQUE
+-- 07. CHECK
+-- 08. DEFAULT
+-- 09. INFORMATION_SCHEMA
+-- 10. INSERT
+-- 11. SELECT e WHERE
+-- 12. JOIN
+-- 13. ALTER TABLE
+-- 14. Funcoes de datas
+-- 15. UPDATE
+-- 16. Integridade referencial e CASCADE
+-- 17. Funcoes de agregacao
+-- 18. DELETE
+-- 19. DROP e TRUNCATE
+-- 20. Views
+-- 21. Indexes
+-- 22. Subqueries
+-- 23. Set operators
+-- 24. Erros comuns
+
+
+-- ============================================================
+-- 01. CRIACAO DE SCHEMAS
+-- GitBook: Lesson 05 - CREATE
+-- ============================================================
+
+CREATE SCHEMA Futebol;
+GO
+
+-- Um schema permite organizar objetos da base de dados.
+-- Sintaxe: schema.tabela
+
+
+-- ============================================================
+-- 02. CRIACAO DE TABELAS
+-- GitBook: Lesson 05 - CREATE
+-- ============================================================
+
+CREATE TABLE Futebol.Jogador (
+    IDJOGADOR INT NOT NULL,
+    NOME VARCHAR(80) NOT NULL,
+    EMAIL VARCHAR(100) NOT NULL,
+    DATADENASCIMENTO DATE NOT NULL
+);
+
+CREATE TABLE Futebol.Contrato (
+    IDCONTRATO INT NOT NULL,
+    IDJOGADOR INT NOT NULL,
+    CLUBE VARCHAR(80) NOT NULL,
+    DATAINICIO DATE NOT NULL,
+    SALARIO DECIMAL(10,2) NOT NULL
+);
+
+-- NOT NULL: campo obrigatorio.
+-- NULL: campo opcional.
+
+
+-- ============================================================
+-- 03. TIPOS DE DADOS
+-- GitBook: Lesson 05 - Data types
+-- ============================================================
+
+-- INT           : Numero inteiro.
+-- SMALLINT      : Numero inteiro de menor capacidade.
+-- BIGINT        : Numero inteiro de maior capacidade.
+-- DECIMAL(10,2) : Numero com 10 digitos, 2 decimais.
+-- NUMERIC(10,2) : Equivalente a DECIMAL.
+-- FLOAT         : Numero aproximado.
+-- VARCHAR(80)   : Texto de tamanho variavel.
+-- CHAR(10)      : Texto de tamanho fixo.
+-- NVARCHAR(80)  : Texto Unicode.
+-- DATE          : Data.
+-- DATETIME      : Data e hora.
+-- DATETIME2     : Data e hora com maior precisao.
+-- BIT           : 0 ou 1, podendo aceitar NULL.
+
+-- Exemplo de coluna com identificador automatico:
+-- ID INT IDENTITY(1,1) PRIMARY KEY
+
+-- IDENTITY(1,1):
+-- Primeiro valor: 1.
+-- Incremento: 1.
+
+
+-- ============================================================
+-- 04. PRIMARY KEY
+-- GitBook: Lesson 06 - PRIMARY KEY
+-- ============================================================
+
+-- Identifica unicamente cada registo.
+-- Nao permite valores repetidos nem NULL.
+-- Cada tabela possui no maximo uma PRIMARY KEY.
+
+ALTER TABLE Futebol.Jogador
+ADD CONSTRAINT PK_JOGADOR
+PRIMARY KEY (IDJOGADOR);
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT PK_CONTRATO
+PRIMARY KEY (IDCONTRATO);
+
+
+-- PRIMARY KEY COMPOSTA
+-- A combinacao das colunas deve ser unica.
+-- Exemplo alternativo:
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT PK_CONTRATO_COMPOSTA
+PRIMARY KEY (IDJOGADOR, DATAINICIO);
+*/
+
+-- Nao pode existir outra PRIMARY KEY na mesma tabela.
+
+
+-- ELIMINAR PRIMARY KEY
+
+/*
+ALTER TABLE Futebol.Jogador
+DROP CONSTRAINT PK_JOGADOR;
+*/
+
+-- Se existirem FOREIGN KEYS dependentes, devem ser
+-- removidas primeiro.
+
+
+-- CRIAR PRIMARY KEY DENTRO DO CREATE TABLE
+
+/*
+CREATE TABLE Futebol.Exemplo (
+    ID INT NOT NULL,
+    NOME VARCHAR(80) NOT NULL,
+
+    CONSTRAINT PK_EXEMPLO
+    PRIMARY KEY (ID)
+);
+*/
+
+
+-- ============================================================
+-- 05. FOREIGN KEY
+-- GitBook: Lesson 07 - Applying references with foreign keys
+-- ============================================================
+
+-- FOREIGN KEY garante a integridade referencial.
+-- A coluna referenciada deve possuir uma chave adequada,
+-- como PRIMARY KEY ou UNIQUE.
+-- Os tipos de dados devem ser compativeis.
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT FK_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR);
+
+
+-- SINTAXE GERAL:
+
+/*
+ALTER TABLE schema.tabela_dependente
+ADD CONSTRAINT nome_restricao
+FOREIGN KEY (coluna_dependente)
+REFERENCES schema.tabela_principal (coluna_principal);
+*/
+
+
+-- ELIMINAR FOREIGN KEY
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT FK_JOGADOR;
+*/
+
+
+-- ============================================================
+-- 06. UNIQUE
+-- GitBook: Lesson 06 - UNIQUE and alternate keys
+-- ============================================================
+
+-- UNIQUE impede valores repetidos.
+-- Uma tabela pode possuir varias restricoes UNIQUE.
+
+
+-- UNIQUE SIMPLES
+-- Impedir emails repetidos.
+
+ALTER TABLE Futebol.Jogador
+ADD CONSTRAINT UQ_EMAIL
+UNIQUE (EMAIL);
+
+
+-- UNIQUE COMPOSTA
+-- Impedir combinacoes repetidas de jogador e data de inicio.
+-- Um jogador pode possuir varios contratos,
+-- desde que as datas de inicio sejam diferentes.
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT UQ_CONTRATO
+UNIQUE (IDJOGADOR, DATAINICIO);
+
+
+-- ELIMINAR UNIQUE
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT UQ_CONTRATO;
+*/
+
+
+-- ============================================================
+-- 07. CHECK
+-- GitBook: Lesson 06 - CHECK
+-- ============================================================
+
+-- CHECK garante que uma determinada condicao e respeitada.
+
+
+-- SALARIO SUPERIOR A ZERO
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_SALARIO
+CHECK (SALARIO > 0);
+
+
+-- SALARIO ENTRE DOIS VALORES
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_SALARIO_INTERVALO
+CHECK (SALARIO BETWEEN 1000 AND 100000);
+*/
+
+
+-- PERMITIR APENAS DETERMINADOS VALORES
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_CLUBE
+CHECK (CLUBE IN ('Porto', 'Benfica', 'Sporting'));
+*/
+
+
+-- UTILIZAR VARIAS CONDICOES
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_SALARIO_CLUBE
+CHECK (
+    SALARIO > 1000
+    AND CLUBE <> ''
+);
+*/
+
+
+-- ELIMINAR CHECK
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT CK_SALARIO;
+*/
+
+
+-- ============================================================
+-- 08. DEFAULT
+-- ============================================================
+
+-- DEFAULT define um valor por defeito quando a coluna
+-- e omitida numa insercao.
+
+
+-- SALARIO POR DEFEITO
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT DF_SALARIO
+DEFAULT 1000 FOR SALARIO;
+
+
+-- DATA DE INICIO POR DEFEITO
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT DF_DATAINICIO
+DEFAULT GETDATE() FOR DATAINICIO;
+
+
+-- INSERIR UTILIZANDO DEFAULT
+-- O jogador referenciado deve existir.
+
+/*
+INSERT INTO Futebol.Contrato
+    (IDCONTRATO, IDJOGADOR, CLUBE)
+VALUES
+    (10, 1, 'Porto');
+*/
+
+
+-- ELIMINAR DEFAULT
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT DF_SALARIO;
+*/
+
+
+-- ============================================================
+-- 09. INFORMATION_SCHEMA
+-- GitBook: Lesson 05 - CREATE
+-- ============================================================
+
+-- LISTAR TODOS OS SCHEMAS
+
+SELECT *
+FROM INFORMATION_SCHEMA.SCHEMATA;
+
+
+-- LISTAR TODAS AS TABELAS
+
+SELECT *
+FROM INFORMATION_SCHEMA.TABLES;
+
+
+-- LISTAR TABELAS DE UM SCHEMA
+
+SELECT *
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA = 'Futebol';
+
+
+-- LISTAR COLUNAS DE TODAS AS TABELAS DE UM SCHEMA
+
+SELECT *
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'Futebol';
+
+
+-- LISTAR COLUNAS DE UMA TABELA ESPECIFICA
+
+SELECT *
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'Futebol'
+AND TABLE_NAME = 'Jogador';
+
+
+-- LISTAR CONSTRAINTS DE UM SCHEMA
+
+SELECT *
+FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+WHERE TABLE_SCHEMA = 'Futebol';
+
+
+-- LISTAR CONSTRAINTS DE UMA TABELA
+
+SELECT *
+FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+WHERE TABLE_SCHEMA = 'Futebol'
+AND TABLE_NAME = 'Contrato';
+
+
+-- ============================================================
+-- 10. INSERT
+-- ============================================================
+
+-- INSERT INTO permite inserir novos registos.
+-- Textos e datas devem estar entre aspas simples.
+-- Numeros nao precisam de aspas.
+-- O numero de valores deve corresponder ao numero de colunas.
+
+
+-- INSERIR VARIOS JOGADORES
+
+INSERT INTO Futebol.Jogador
+    (IDJOGADOR, NOME, EMAIL, DATADENASCIMENTO)
+VALUES
+    (1, 'Ronaldo', 'ronaldo@gmail.com', '1985-02-05'),
+    (2, 'Messi', 'messi@gmail.com', '1987-06-24'),
+    (3, 'Pepe', 'pepe@gmail.com', '1983-02-26');
+
+
+-- INSERIR VARIOS CONTRATOS
+-- Inserir primeiro os jogadores e depois os contratos,
+-- devido a dependencia criada pela FOREIGN KEY.
+
+INSERT INTO Futebol.Contrato
+    (IDCONTRATO, IDJOGADOR, CLUBE, DATAINICIO, SALARIO)
+VALUES
+    (1, 1, 'Real Madrid', '2009-07-01', 50000),
+    (2, 2, 'Barcelona', '2004-07-01', 40000),
+    (3, 2, 'PSG', '2021-08-10', 60000);
+
+
+-- INSERIR APENAS UM REGISTO
+
+/*
+INSERT INTO Futebol.Jogador
+    (IDJOGADOR, NOME, EMAIL, DATADENASCIMENTO)
+VALUES
+    (10, 'Diogo', 'diogo@gmail.com', '2000-01-01');
+*/
+
+
+-- INSERIR SEM INDICAR AS COLUNAS
+-- Os valores devem respeitar a ordem das colunas.
+
+/*
+INSERT INTO Futebol.Jogador
+VALUES
+    (10, 'Diogo', 'diogo@gmail.com', '2000-01-01');
+*/
+
+
+-- INSERIR DADOS A PARTIR DE UMA CONSULTA
+-- GitBook: Lesson 05 - Insert data from queries
+
+/*
+INSERT INTO Futebol.OutraTabela (ID, NOME)
+SELECT IDJOGADOR, NOME
+FROM Futebol.Jogador;
+*/
+
+
+-- ============================================================
+-- 11. SELECT E WHERE
+-- ============================================================
+
+-- LISTAR TODOS OS REGISTOS
+
+SELECT *
+FROM Futebol.Jogador;
+
+SELECT *
+FROM Futebol.Contrato;
+
+
+-- LISTAR APENAS DETERMINADAS COLUNAS
+
+SELECT NOME, EMAIL
+FROM Futebol.Jogador;
+
+
+-- FILTRAR POR IDENTIFICADOR
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR = 1;
+
+
+-- FILTRAR POR SALARIO
+
+SELECT *
+FROM Futebol.Contrato
+WHERE SALARIO > 1000;
+
+
+-- OPERADORES DE COMPARACAO
+
+-- =   Igual
+-- <>  Diferente
+-- >   Maior
+-- <   Menor
+-- >=  Maior ou igual
+-- <=  Menor ou igual
+
+
+-- AND
+-- As duas condicoes devem ser verdadeiras.
+
+SELECT *
+FROM Futebol.Contrato
+WHERE SALARIO > 1000
+AND CLUBE = 'Porto';
+
+
+-- OR
+-- Pelo menos uma condicao deve ser verdadeira.
+
+SELECT *
+FROM Futebol.Contrato
+WHERE CLUBE = 'Porto'
+OR CLUBE = 'Benfica';
+
+
+-- BETWEEN
+-- Intervalo inclusivo.
+
+SELECT *
+FROM Futebol.Contrato
+WHERE SALARIO BETWEEN 1000 AND 5000;
+
+
+-- IN
+-- Verificar se um valor pertence a uma lista.
+
+SELECT *
+FROM Futebol.Contrato
+WHERE CLUBE IN ('Porto', 'Benfica', 'Sporting');
+
+
+-- NOT IN
+-- Verificar se um valor nao pertence a uma lista.
+
+SELECT *
+FROM Futebol.Contrato
+WHERE CLUBE NOT IN ('Porto', 'Benfica');
+
+
+-- LIKE
+-- Procurar padroes em texto.
+-- % representa zero ou mais caracteres.
+-- _ representa exatamente um caracter.
+
+SELECT *
+FROM Futebol.Jogador
+WHERE NOME LIKE 'R%';
+
+
+-- Nomes que terminam em O.
+
+SELECT *
+FROM Futebol.Jogador
+WHERE NOME LIKE '%O';
+
+
+-- Nomes que contem A.
+
+SELECT *
+FROM Futebol.Jogador
+WHERE NOME LIKE '%A%';
+
+
+-- IS NULL
+
+SELECT *
+FROM Futebol.Jogador
+WHERE EMAIL IS NULL;
+
+
+-- IS NOT NULL
+
+SELECT *
+FROM Futebol.Jogador
+WHERE EMAIL IS NOT NULL;
+
+
+-- Nunca utilizar = NULL ou <> NULL.
+
+
+-- ORDER BY ASC
+-- Ordenacao crescente.
+
+SELECT *
+FROM Futebol.Contrato
+ORDER BY SALARIO ASC;
+
+
+-- ORDER BY DESC
+-- Ordenacao decrescente.
+
+SELECT *
+FROM Futebol.Contrato
+ORDER BY SALARIO DESC;
+
+
+-- ORDENAR POR VARIAS COLUNAS
+
+SELECT *
+FROM Futebol.Contrato
+ORDER BY SALARIO DESC, CLUBE ASC;
+
+
+-- TOP
+-- Selecionar os primeiros registos.
+
+SELECT TOP 3 *
+FROM Futebol.Contrato
+ORDER BY SALARIO DESC;
+
+
+-- DISTINCT
+-- Eliminar repeticoes do resultado.
+
+SELECT DISTINCT CLUBE
+FROM Futebol.Contrato;
+
+
+-- AS
+-- Criar um alias para uma coluna.
+
+SELECT NOME AS NOME_JOGADOR
+FROM Futebol.Jogador;
+
+
+-- ============================================================
+-- 12. JOIN
+-- GitBook: Lesson 08 - Horizontal join syntax
+-- ============================================================
+
+-- INNER JOIN
+-- Apresenta apenas registos com correspondencia
+-- nas duas tabelas.
+
+SELECT
+    J.NOME,
+    C.CLUBE,
+    C.SALARIO
+FROM Futebol.Jogador AS J
+INNER JOIN Futebol.Contrato AS C
+ON J.IDJOGADOR = C.IDJOGADOR;
+
+
+-- RESULTADO:
+-- Ronaldo | Real Madrid | 50000
+-- Messi   | Barcelona   | 40000
+-- Messi   | PSG         | 60000
+
+
+-- LEFT JOIN
+-- Apresenta todos os registos da tabela esquerda,
+-- mesmo quando nao existe correspondencia.
+
+SELECT
+    J.NOME,
+    C.CLUBE,
+    C.SALARIO
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Contrato AS C
+ON J.IDJOGADOR = C.IDJOGADOR;
+
+
+-- RESULTADO:
+-- Ronaldo | Real Madrid | 50000
+-- Messi   | Barcelona   | 40000
+-- Messi   | PSG         | 60000
+-- Pepe    | NULL        | NULL
+
+
+-- RIGHT JOIN
+-- Apresenta todos os registos da tabela direita.
+
+SELECT
+    J.NOME,
+    C.CLUBE,
+    C.SALARIO
+FROM Futebol.Contrato AS C
+RIGHT JOIN Futebol.Jogador AS J
+ON C.IDJOGADOR = J.IDJOGADOR;
+
+
+-- FULL OUTER JOIN
+-- Apresenta todos os registos das duas tabelas,
+-- mesmo quando nao existe correspondencia.
+
+SELECT
+    J.NOME,
+    C.CLUBE,
+    C.SALARIO
+FROM Futebol.Jogador AS J
+FULL OUTER JOIN Futebol.Contrato AS C
+ON J.IDJOGADOR = C.IDJOGADOR;
+
+
+-- CROSS JOIN
+-- Todas as combinacoes possiveis entre as tabelas.
+
+SELECT J.NOME, C.CLUBE
+FROM Futebol.Jogador AS J
+CROSS JOIN Futebol.Contrato AS C;
+
+
+-- LISTAR APENAS JOGADORES SEM CONTRATOS
+
+SELECT J.NOME
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Contrato AS C
+ON J.IDJOGADOR = C.IDJOGADOR
+WHERE C.IDCONTRATO IS NULL;
+
+
+-- UTILIZAR ALIASES NAS COLUNAS
+
+SELECT
+    J.NOME AS NOME_JOGADOR,
+    C.CLUBE AS NOME_CLUBE,
+    C.SALARIO AS SALARIO_MENSAL
+FROM Futebol.Jogador AS J
+INNER JOIN Futebol.Contrato AS C
+ON J.IDJOGADOR = C.IDJOGADOR;
+
+
+-- REGRA DO LEFT JOIN:
+-- Colocar no FROM a tabela da qual queremos manter
+-- todos os registos.
+
+
+-- ============================================================
+-- 13. ALTER TABLE
+-- GitBook: Lesson 05 - ALTER
+-- ============================================================
+
+-- ADICIONAR UMA COLUNA
+
+ALTER TABLE Futebol.Contrato
+ADD DATAFIM DATE NULL;
+GO
+
+
+-- ADICIONAR VARIAS COLUNAS
+
+/*
+ALTER TABLE Futebol.Jogador
+ADD
+    NACIONALIDADE VARCHAR(50),
+    ALTURA DECIMAL(4,2),
+    PESO INT;
+*/
+
+
+-- ALTERAR O TIPO OU TAMANHO DE UMA COLUNA
+
+/*
+ALTER TABLE Futebol.Jogador
+ALTER COLUMN NOME VARCHAR(150) NOT NULL;
+*/
+
+
+-- TORNAR UMA COLUNA OBRIGATORIA
+-- Nao podem existir valores NULL nessa coluna.
+
+/*
+ALTER TABLE Futebol.Jogador
+ALTER COLUMN NACIONALIDADE VARCHAR(50) NOT NULL;
+*/
+
+
+-- TORNAR UMA COLUNA OPCIONAL
+
+/*
+ALTER TABLE Futebol.Jogador
+ALTER COLUMN NACIONALIDADE VARCHAR(50) NULL;
+*/
+
+
+-- ELIMINAR UMA COLUNA
+
+/*
+ALTER TABLE Futebol.Jogador
+DROP COLUMN NACIONALIDADE;
+*/
+
+
+-- ADICIONAR UMA RESTRICAO
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_EXEMPLO
+CHECK (SALARIO > 0);
+*/
+
+
+-- ELIMINAR UMA RESTRICAO
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT CK_EXEMPLO;
+*/
+
+
+-- ELIMINAR UMA COLUNA COM RESTRICAO ASSOCIADA
+-- Primeiro eliminar a restricao e depois a coluna.
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT CK_DURACAO;
+
+ALTER TABLE Futebol.Contrato
+DROP COLUMN DATAFIM;
+*/
+
+
+-- ============================================================
+-- 14. FUNCOES DE DATAS
+-- ============================================================
+
+-- GETDATE()
+-- Obter data e hora atuais.
+
+SELECT GETDATE();
+
+
+-- CAST
+-- Converter um tipo de dados.
+
+SELECT CAST(GETDATE() AS DATE);
+
+
+-- DATEADD
+-- Adicionar tempo a uma data.
+
+SELECT DATEADD(DAY, 10, '2024-01-01');
+
+SELECT DATEADD(MONTH, 1, '2024-01-01');
+
+SELECT DATEADD(YEAR, 1, '2024-01-01');
+
+
+-- SUBTRAIR TEMPO
+
+SELECT DATEADD(MONTH, -1, '2024-02-01');
+
+
+-- DATEDIFF
+-- Contar fronteiras de intervalos entre datas.
+
+SELECT DATEDIFF(DAY, '2024-01-01', '2024-02-01');
+
+SELECT DATEDIFF(MONTH, '2024-01-01', '2024-02-01');
+
+SELECT DATEDIFF(YEAR, '2020-01-01', '2024-01-01');
+
+
+-- OBTER ANO, MES E DIA
+
+SELECT
+    YEAR(DATAINICIO),
+    MONTH(DATAINICIO),
+    DAY(DATAINICIO)
+FROM Futebol.Contrato;
+
+
+-- CHECK COM DURACAO MINIMA DE UM MES
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_DURACAO
+CHECK (
+    DATAFIM >= DATEADD(MONTH, 1, DATAINICIO)
+);
+
+
+-- EXEMPLOS:
+-- Inicio: 2024-01-01 | Fim: 2024-01-15 | INVALIDO
+-- Inicio: 2024-01-01 | Fim: 2024-02-01 | VALIDO
+-- Inicio: 2024-01-01 | Fim: 2024-03-01 | VALIDO
+-- Inicio: 2024-01-01 | Fim: NULL       | VALIDO
+
+
+-- CHECK COM DURACAO MINIMA DE UM ANO
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_DURACAO_ANO
+CHECK (
+    DATAFIM >= DATEADD(YEAR, 1, DATAINICIO)
+);
+*/
+
+
+-- CHECK COM DURACAO MINIMA DE 30 DIAS
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_DURACAO_DIAS
+CHECK (
+    DATAFIM >= DATEADD(DAY, 30, DATAINICIO)
+);
+*/
+
+
+-- GARANTIR QUE A DATA DE FIM E POSTERIOR AO INICIO
+
+/*
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT CK_DATAS
+CHECK (DATAFIM > DATAINICIO);
+*/
+
+
+-- CALCULAR DURACAO DOS CONTRATOS EM DIAS
+
+SELECT
+    IDCONTRATO,
+    DATEDIFF(DAY, DATAINICIO, DATAFIM) AS DURACAO_DIAS
+FROM Futebol.Contrato
+WHERE DATAFIM IS NOT NULL;
+
+
+-- IMPORTANTE:
+-- DATEDIFF(MONTH, DATAINICIO, DATAFIM) >= 1
+-- nao garante necessariamente um mes completo.
+-- DATEADD e mais adequado para essa restricao.
+
+
+-- ============================================================
+-- 15. UPDATE
+-- ============================================================
+
+-- UPDATE altera registos existentes.
+-- SET indica os novos valores.
+-- WHERE indica quais os registos a alterar.
+
+
+-- ALTERAR UM CAMPO
+
+UPDATE Futebol.Jogador
+SET NOME = 'Cristiano Ronaldo'
+WHERE IDJOGADOR = 1;
+
+
+-- ALTERAR VARIOS CAMPOS
+
+UPDATE Futebol.Jogador
+SET
+    NOME = 'Cristiano Ronaldo',
+    EMAIL = 'cristiano@gmail.com'
+WHERE IDJOGADOR = 1;
+
+
+-- AUMENTAR TODOS OS SALARIOS EM 10 POR CENTO
+
+UPDATE Futebol.Contrato
+SET SALARIO = SALARIO * 1.10;
+
+
+-- AUMENTAR APENAS OS SALARIOS DE UM CLUBE
+
+UPDATE Futebol.Contrato
+SET SALARIO = SALARIO * 1.10
+WHERE CLUBE = 'Porto';
+
+
+-- ALTERAR A DATA DE FIM DE UM CONTRATO
+
+UPDATE Futebol.Contrato
+SET DATAFIM = '2018-07-01'
+WHERE IDCONTRATO = 1;
+
+
+-- LISTAR TODOS OS CONTRATOS
+
+SELECT *
+FROM Futebol.Contrato;
+
+
+-- LISTAR CONTRATOS COM DATA DE FIM PREENCHIDA
+
+SELECT *
+FROM Futebol.Contrato
+WHERE DATAFIM IS NOT NULL;
+
+
+-- LISTAR CONTRATOS SEM DATA DE FIM
+
+SELECT *
+FROM Futebol.Contrato
+WHERE DATAFIM IS NULL;
+
+
+-- LISTAR CONTRATOS CUJA DATA DE FIM JA PASSOU
+
+SELECT *
+FROM Futebol.Contrato
+WHERE DATAFIM <= CAST(GETDATE() AS DATE);
+
+
+-- REGISTAR DATA DE FIM NA DATA ATUAL
+
+/*
+UPDATE Futebol.Contrato
+SET DATAFIM = GETDATE()
+WHERE IDCONTRATO = 1;
+*/
+
+
+-- COLOCAR UM CAMPO A NULL
+-- A coluna deve aceitar NULL.
+
+/*
+UPDATE Futebol.Contrato
+SET DATAFIM = NULL
+WHERE IDCONTRATO = 1;
+*/
+
+
+-- UPDATE SEM WHERE ALTERA TODOS OS REGISTOS.
+
+
+-- ============================================================
+-- 16. INTEGRIDADE REFERENCIAL
+-- GitBook: Lesson 07 - Applying references with foreign keys
+-- ============================================================
+
+-- NO ACTION:
+-- Comportamento por defeito.
+-- Impede alteracoes que violem a integridade referencial.
+
+-- CASCADE:
+-- Propaga automaticamente alteracoes ou eliminacoes.
+
+-- SET NULL:
+-- Coloca a referencia a NULL.
+-- A coluna deve aceitar NULL.
+
+-- SET DEFAULT:
+-- Coloca a referencia no valor por defeito.
+-- O valor deve respeitar a integridade referencial.
+
+
+-- ON UPDATE CASCADE
+
+-- Primeiro eliminar a FOREIGN KEY existente.
+
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT FK_JOGADOR;
+
+
+-- Criar novamente a FOREIGN KEY com ON UPDATE CASCADE.
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT FK_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR)
+ON UPDATE CASCADE;
+
+
+-- Alterar o identificador de um jogador.
+
+UPDATE Futebol.Jogador
+SET IDJOGADOR = 20
+WHERE IDJOGADOR = 2;
+
+
+-- Os contratos associados passam automaticamente
+-- de IDJOGADOR = 2 para IDJOGADOR = 20.
+
+
+-- Consultar o jogador alterado.
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR = 20;
+
+
+-- Consultar os contratos associados.
+
+SELECT *
+FROM Futebol.Contrato
+WHERE IDJOGADOR = 20;
+
+
+-- ON DELETE CASCADE
+-- Elimina automaticamente os registos dependentes.
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT FK_JOGADOR;
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT FK_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR)
+ON DELETE CASCADE;
+*/
+
+
+-- ON UPDATE CASCADE E ON DELETE CASCADE
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT FK_JOGADOR;
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT FK_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR)
+ON UPDATE CASCADE
+ON DELETE CASCADE;
+*/
+
+
+-- NO ACTION
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT FK_JOGADOR;
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT FK_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR)
+ON UPDATE NO ACTION
+ON DELETE NO ACTION;
+*/
+
+
+-- SET NULL
+-- A coluna dependente deve aceitar NULL.
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT FK_JOGADOR;
+
+ALTER TABLE Futebol.Contrato
+ALTER COLUMN IDJOGADOR INT NULL;
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT FK_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR)
+ON DELETE SET NULL;
+*/
+
+
+-- SET DEFAULT
+-- O jogador com ID 1 deve existir.
+
+/*
+ALTER TABLE Futebol.Contrato
+DROP CONSTRAINT FK_JOGADOR;
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT DF_JOGADOR
+DEFAULT 1 FOR IDJOGADOR;
+
+ALTER TABLE Futebol.Contrato
+ADD CONSTRAINT FK_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR)
+ON DELETE SET DEFAULT;
+*/
+
+
+-- IMPORTANTE:
+-- Para alterar uma FOREIGN KEY existente,
+-- eliminar a restricao e voltar a cria-la.
+--
+-- Nao existe ALTER TABLE UPDATE CONSTRAINT.
+--
+-- SET NULL e SET DEFAULT tambem devem respeitar
+-- as restantes restricoes da tabela, como UNIQUE.
+
+
+-- ============================================================
+-- 17. FUNCOES DE AGREGACAO
+-- GitBook: Lesson 04 - GROUP FUNCTIONS AND SET OPERATORS
+-- ============================================================
+
+-- COUNT : Contar registos.
+-- SUM   : Somar valores.
+-- AVG   : Calcular media.
+-- MAX   : Obter maior valor.
+-- MIN   : Obter menor valor.
+
+
+-- CONTAR TODOS OS JOGADORES
+
+SELECT COUNT(*) AS TOTAL_JOGADORES
+FROM Futebol.Jogador;
+
+
+-- CONTAR TODOS OS CONTRATOS
+
+SELECT COUNT(*) AS TOTAL_CONTRATOS
+FROM Futebol.Contrato;
+
+
+-- CONTAR JOGADORES DIFERENTES COM CONTRATOS
+
+SELECT COUNT(DISTINCT IDJOGADOR)
+FROM Futebol.Contrato;
+
+
+-- CALCULAR SALARIO TOTAL
+
+SELECT SUM(SALARIO) AS SALARIO_TOTAL
+FROM Futebol.Contrato;
+
+
+-- CALCULAR SALARIO MEDIO
+
+SELECT AVG(SALARIO) AS SALARIO_MEDIO
+FROM Futebol.Contrato;
+
+
+-- OBTER MAIOR SALARIO
+
+SELECT MAX(SALARIO) AS MAIOR_SALARIO
+FROM Futebol.Contrato;
+
+
+-- OBTER MENOR SALARIO
+
+SELECT MIN(SALARIO) AS MENOR_SALARIO
+FROM Futebol.Contrato;
+
+
+-- GROUP BY
+-- Agrupa registos para aplicar funcoes de agregacao.
+
+
+-- CONTAR CONTRATOS POR JOGADOR
+
+SELECT
+    IDJOGADOR,
+    COUNT(*) AS TOTAL_CONTRATOS
+FROM Futebol.Contrato
+GROUP BY IDJOGADOR;
+
+
+-- CALCULAR SALARIO MEDIO POR CLUBE
+
+SELECT
+    CLUBE,
+    AVG(SALARIO) AS SALARIO_MEDIO
+FROM Futebol.Contrato
+GROUP BY CLUBE;
+
+
+-- CONTAR CONTRATOS POR JOGADOR, INCLUINDO ZERO
+
+SELECT
+    J.IDJOGADOR,
+    J.NOME,
+    COUNT(C.IDCONTRATO) AS TOTAL_CONTRATOS
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Contrato AS C
+ON J.IDJOGADOR = C.IDJOGADOR
+GROUP BY J.IDJOGADOR, J.NOME;
+
+
+-- COUNT(C.IDCONTRATO) ignora os valores NULL.
+-- COUNT(*) contaria tambem a linha do jogador sem contrato.
+
+
+-- HAVING
+-- Filtra grupos depois do GROUP BY.
+
+SELECT
+    IDJOGADOR,
+    COUNT(*) AS TOTAL_CONTRATOS
+FROM Futebol.Contrato
+GROUP BY IDJOGADOR
+HAVING COUNT(*) > 1;
+
+
+-- WHERE E HAVING
+
+SELECT
+    CLUBE,
+    AVG(SALARIO) AS SALARIO_MEDIO
+FROM Futebol.Contrato
+WHERE SALARIO > 1000
+GROUP BY CLUBE
+HAVING AVG(SALARIO) > 2000;
+
+
+-- WHERE filtra registos antes do agrupamento.
+-- HAVING filtra grupos depois do agrupamento.
+
+
+-- ============================================================
+-- 18. DELETE
+-- ============================================================
+
+-- DELETE elimina registos de uma tabela.
+-- WHERE indica quais os registos a eliminar.
+
+
+-- ELIMINAR UM REGISTO
+
+DELETE FROM Futebol.Contrato
+WHERE IDCONTRATO = 1;
+
+
+-- CONFIRMAR QUE O REGISTO FOI ELIMINADO
+
+SELECT *
+FROM Futebol.Contrato
+WHERE IDCONTRATO = 1;
+
+
+-- ELIMINAR TODOS OS CONTRATOS DE UM JOGADOR
+
+/*
+DELETE FROM Futebol.Contrato
+WHERE IDJOGADOR = 20;
+*/
+
+
+-- ELIMINAR CONTRATOS COM DATA DE FIM PREENCHIDA
+
+/*
+DELETE FROM Futebol.Contrato
+WHERE DATAFIM IS NOT NULL;
+*/
+
+
+-- ELIMINAR JOGADOR COM CONTRATOS SEM DELETE CASCADE
+-- Primeiro eliminar os contratos associados.
+
+/*
+DELETE FROM Futebol.Contrato
+WHERE IDJOGADOR = 20;
+
+DELETE FROM Futebol.Jogador
+WHERE IDJOGADOR = 20;
+*/
+
+
+-- ELIMINAR JOGADOR COM ON DELETE CASCADE
+-- Os contratos associados sao eliminados automaticamente.
+
+/*
+DELETE FROM Futebol.Jogador
+WHERE IDJOGADOR = 20;
+*/
+
+
+-- ELIMINAR TODOS OS REGISTOS
+-- Sem WHERE, todos os registos sao eliminados.
+-- Primeiro eliminar os dados da tabela dependente.
+
+/*
+DELETE FROM Futebol.Contrato;
+
+DELETE FROM Futebol.Jogador;
+*/
+
+
+-- CONFIRMAR QUE AS TABELAS ESTAO VAZIAS
+
+/*
+SELECT * FROM Futebol.Contrato;
+
+SELECT * FROM Futebol.Jogador;
+*/
+
+
+-- ============================================================
+-- 19. DROP E TRUNCATE
+-- GitBook: Lesson 05 - DROP
+-- ============================================================
+
+-- DELETE:
+-- Elimina registos, mantendo a estrutura.
+-- Permite utilizar WHERE.
+
+-- TRUNCATE:
+-- Elimina todos os registos, mantendo a estrutura.
+-- Nao permite WHERE.
+-- Possui restricoes quando a tabela e referenciada
+-- por uma FOREIGN KEY.
+
+-- DROP TABLE:
+-- Elimina os registos e a estrutura da tabela.
+
+-- DROP SCHEMA:
+-- Elimina um schema vazio.
+
+
+-- TRUNCATE
+
+/*
+TRUNCATE TABLE Futebol.Contrato;
+*/
+
+
+-- DROP TABLE
+
+/*
+DROP TABLE Futebol.Contrato;
+*/
+
+
+-- ELIMINAR TABELAS COM DEPENDENCIAS
+-- Primeiro eliminar a tabela dependente.
+
+/*
+DROP TABLE Futebol.Contrato;
+
+DROP TABLE Futebol.Jogador;
+*/
+
+
+-- ELIMINAR SCHEMA
+-- O schema nao pode possuir objetos.
+
+/*
+DROP SCHEMA Futebol;
+*/
+
+
+-- ============================================================
+-- 20. VIEWS
+-- GitBook: Lesson 05 - Views
+-- ============================================================
+
+-- Uma VIEW representa uma consulta guardada.
+-- CREATE VIEW deve iniciar um batch.
+
+GO
+
+CREATE VIEW Futebol.vw_Contratos
+AS
+SELECT
+    J.NOME,
+    C.CLUBE,
+    C.SALARIO
+FROM Futebol.Jogador AS J
+INNER JOIN Futebol.Contrato AS C
+ON J.IDJOGADOR = C.IDJOGADOR;
+
+GO
+
+
+-- CONSULTAR UMA VIEW
+
+SELECT *
+FROM Futebol.vw_Contratos;
+
+
+-- CONSULTAR UMA VIEW COM WHERE
+
+SELECT *
+FROM Futebol.vw_Contratos
+WHERE SALARIO > 1000;
+
+
+-- ELIMINAR UMA VIEW
+
+DROP VIEW Futebol.vw_Contratos;
+
+
+-- ============================================================
+-- 21. INDEXES
+-- GitBook: Lesson 05 - Indexes
+-- ============================================================
+
+-- Um indice pode melhorar o desempenho de consultas.
+-- Possui custos adicionais de armazenamento e manutencao.
+
+
+-- CRIAR INDICE
+
+CREATE INDEX IX_JOGADOR_NOME
+ON Futebol.Jogador (NOME);
+
+
+-- CRIAR INDICE COMPOSTO
+
+CREATE INDEX IX_CONTRATO_CLUBE_SALARIO
+ON Futebol.Contrato (CLUBE, SALARIO);
+
+
+-- CRIAR INDICE UNICO
+-- Impede valores repetidos na chave do indice.
+
+/*
+CREATE UNIQUE INDEX IX_JOGADOR_EMAIL
+ON Futebol.Jogador (EMAIL);
+*/
+
+
+-- ELIMINAR INDICE
+
+DROP INDEX IX_JOGADOR_NOME
+ON Futebol.Jogador;
+
+DROP INDEX IX_CONTRATO_CLUBE_SALARIO
+ON Futebol.Contrato;
+
+
+-- ============================================================
+-- 22. SUBQUERIES
+-- ============================================================
+
+-- Uma subquery e uma consulta dentro de outra consulta.
+
+
+-- LISTAR JOGADORES COM CONTRATOS
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR IN (
+    SELECT IDJOGADOR
+    FROM Futebol.Contrato
+);
+
+
+-- LISTAR JOGADORES SEM CONTRATOS
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR NOT IN (
+    SELECT IDJOGADOR
+    FROM Futebol.Contrato
+);
+
+
+-- NOT IN pode produzir resultados inesperados
+-- quando a subquery devolve valores NULL.
+
+
+-- EXISTS
+
+SELECT *
+FROM Futebol.Jogador AS J
+WHERE EXISTS (
+    SELECT 1
+    FROM Futebol.Contrato AS C
+    WHERE C.IDJOGADOR = J.IDJOGADOR
+);
+
+
+-- NOT EXISTS
+
+SELECT *
+FROM Futebol.Jogador AS J
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM Futebol.Contrato AS C
+    WHERE C.IDJOGADOR = J.IDJOGADOR
+);
+
+
+-- CONTRATOS COM SALARIO SUPERIOR A MEDIA
+
+SELECT *
+FROM Futebol.Contrato
+WHERE SALARIO > (
+    SELECT AVG(SALARIO)
+    FROM Futebol.Contrato
+);
+
+
+-- SUBQUERY NO SELECT
+-- Obter o nome do jogador associado ao contrato.
+
+SELECT
+    C.CLUBE,
+    C.SALARIO,
+    (
+        SELECT J.NOME
+        FROM Futebol.Jogador AS J
+        WHERE J.IDJOGADOR = C.IDJOGADOR
+    ) AS NOME_JOGADOR
+FROM Futebol.Contrato AS C;
+
+
+-- ============================================================
+-- 23. SET OPERATORS
+-- GitBook: Lesson 04 - GROUP FUNCTIONS AND SET OPERATORS
+-- ============================================================
+
+-- UNION:
+-- Combina resultados e elimina repeticoes.
+
+-- UNION ALL:
+-- Combina resultados mantendo repeticoes.
+
+-- INTERSECT:
+-- Apresenta valores comuns aos dois resultados.
+
+-- EXCEPT:
+-- Apresenta valores do primeiro resultado que
+-- nao existem no segundo resultado.
+
+-- As consultas devem possuir o mesmo numero de colunas
+-- e tipos de dados compativeis.
+
+
+-- UNION
+
+SELECT IDJOGADOR
+FROM Futebol.Jogador
+
+UNION
+
+SELECT IDJOGADOR
+FROM Futebol.Contrato;
+
+
+-- UNION ALL
+
+SELECT IDJOGADOR
+FROM Futebol.Jogador
+
+UNION ALL
+
+SELECT IDJOGADOR
+FROM Futebol.Contrato;
+
+
+-- INTERSECT
+-- Jogadores que possuem contratos.
+
+SELECT IDJOGADOR
+FROM Futebol.Jogador
+
+INTERSECT
+
+SELECT IDJOGADOR
+FROM Futebol.Contrato;
+
+
+-- EXCEPT
+-- Jogadores que nao possuem contratos.
+
+SELECT IDJOGADOR
+FROM Futebol.Jogador
+
+EXCEPT
+
+SELECT IDJOGADOR
+FROM Futebol.Contrato;
+
+
+-- ============================================================
+-- LIMPEZA DOS OBJETOS CRIADOS
+-- ============================================================
+
+-- Eliminar os dados respeitando as dependencias.
+
+DELETE FROM Futebol.Contrato;
+
+DELETE FROM Futebol.Jogador;
+
+
+-- Confirmar que as tabelas estao vazias.
+
+SELECT *
+FROM Futebol.Contrato;
+
+SELECT *
+FROM Futebol.Jogador;
+
+
+-- Eliminar as tabelas e o schema.
+
+DROP TABLE Futebol.Contrato;
+
+DROP TABLE Futebol.Jogador;
+
+DROP SCHEMA Futebol;
+GO
+
+
+-- ============================================================
+-- 24. ERROS COMUNS
+-- ============================================================
+
+-- 01. Esquecer as aspas simples nas datas.
+-- ERRADO: 2005-08-13
+-- CERTO: '2005-08-13'
+
+-- 02. Esquecer virgulas entre colunas ou restricoes.
+
+-- 03. Colocar uma virgula desnecessaria depois
+-- da ultima coluna do CREATE TABLE.
+
+-- 04. Inserir menos valores do que as colunas indicadas.
+
+-- 05. Inserir registos dependentes antes dos principais.
+
+-- 06. Confundir TABLE_SCHEMA com TABLE_NAME.
+-- TABLE_SCHEMA = 'Futebol'
+-- TABLE_NAME = 'Jogador'
+
+-- 07. Colocar a tabela errada no FROM do LEFT JOIN.
+
+-- 08. Utilizar = NULL em vez de IS NULL.
+
+-- 09. Utilizar <> NULL em vez de IS NOT NULL.
+
+-- 10. Esquecer WHERE num UPDATE ou DELETE.
+
+-- 11. Adicionar uma coluna NOT NULL a uma tabela povoada
+-- sem garantir valores para os registos existentes.
+
+-- 12. Alterar uma chave primaria referenciada sem tratar
+-- a integridade referencial.
+
+-- 13. Tentar alterar diretamente uma FOREIGN KEY.
+-- Deve ser eliminada e criada novamente.
+
+-- 14. Eliminar primeiro os registos da tabela principal
+-- quando existem registos dependentes.
+
+-- 15. Eliminar primeiro a tabela principal quando existe
+-- uma FOREIGN KEY que a referencia.
+
+-- 16. Tentar eliminar um schema que ainda possui objetos.
+
+-- 17. Esquecer a separacao de batches quando necessaria.
+
+-- 18. Adicionar uma coluna e utiliza-la imediatamente
+-- no mesmo batch, podendo provocar erro de compilacao.
+-- Utilizar GO quando necessario.
+
+-- 19. Repetir CREATE TABLE quando a tabela ja existe.
+
+-- 20. Repetir INSERT com identificadores que ja existem.
+
+-- 21. Confundir UNIQUE simples com UNIQUE composta.
+
+-- 22. Utilizar COUNT(*) num LEFT JOIN quando se pretende
+-- contar apenas os registos correspondentes.
+
+-- 23. Utilizar WHERE para filtrar resultados de agregacao.
+-- Utilizar HAVING.
+
+-- 24. Utilizar DATEDIFF(MONTH) para garantir um mes completo.
+-- Utilizar DATEADD para comparar as datas.
+
+-- 25. Tentar eliminar uma coluna com constraints associadas.
+-- Eliminar primeiro as dependencias.
+
+
+-- ============================================================
+-- INDICE DO GITBOOK
+-- ============================================================
+
+-- LESSON 04 - GROUP FUNCTIONS AND SET OPERATORS
+
+-- COUNT
+-- SUM
+-- AVG
+-- MIN
+-- MAX
+-- GROUP BY
+-- HAVING
+-- UNION
+-- UNION ALL
+-- INTERSECT
+-- EXCEPT
+
+
+-- LESSON 05 - DDL BASE SYNTAX AND OBJECTS
+
+-- Lesson overview
+-- CREATE
+-- Data types
+-- ALTER
+-- DROP
+-- Views
+-- Indexes
+-- Insert data from queries
+-- Guided practice
+-- Autonomous practice
+
+
+-- LESSON 06 - CONSTRAINTS
+
+-- Lesson overview
+-- PRIMARY KEY
+-- UNIQUE and alternate keys
+-- CHECK
+-- Guided practice
+-- Autonomous practice
+
+
+-- LESSON 07 - REFERENTIAL INTEGRITY AND FOREIGN KEYS
+
+-- Lesson overview
+-- Referential integrity
+-- Applying references with foreign keys
+-- More on dependencies: data integrity
+-- Guided practice
+-- Autonomous practice
+
+
+-- LESSON 08
+
+-- Horizontal join syntax
+-- INNER JOIN
+-- LEFT JOIN
+-- RIGHT JOIN
+-- FULL OUTER JOIN
+-- CROSS JOIN
+
+
+-- ============================================================
+-- RESUMO RAPIDO DE SINTAXE
+-- ============================================================
+
+-- CRIAR SCHEMA
+-- CREATE SCHEMA nome;
+
+-- CRIAR TABELA
+-- CREATE TABLE schema.tabela (...);
+
+-- ADICIONAR COLUNA
+-- ALTER TABLE schema.tabela ADD coluna tipo;
+
+-- ALTERAR COLUNA
+-- ALTER TABLE schema.tabela ALTER COLUMN coluna tipo;
+
+-- ELIMINAR COLUNA
+-- ALTER TABLE schema.tabela DROP COLUMN coluna;
+
+-- PRIMARY KEY
+-- ALTER TABLE schema.tabela
+-- ADD CONSTRAINT PK_nome PRIMARY KEY (coluna);
+
+-- FOREIGN KEY
+-- ALTER TABLE schema.tabela
+-- ADD CONSTRAINT FK_nome
+-- FOREIGN KEY (coluna)
+-- REFERENCES schema.outra_tabela (coluna);
+
+-- UNIQUE
+-- ALTER TABLE schema.tabela
+-- ADD CONSTRAINT UQ_nome UNIQUE (coluna);
+
+-- UNIQUE COMPOSTA
+-- ALTER TABLE schema.tabela
+-- ADD CONSTRAINT UQ_nome UNIQUE (coluna1, coluna2);
+
+-- CHECK
+-- ALTER TABLE schema.tabela
+-- ADD CONSTRAINT CK_nome CHECK (condicao);
+
+-- DEFAULT
+-- ALTER TABLE schema.tabela
+-- ADD CONSTRAINT DF_nome DEFAULT valor FOR coluna;
+
+-- ELIMINAR CONSTRAINT
+-- ALTER TABLE schema.tabela DROP CONSTRAINT nome;
+
+-- INSERIR
+-- INSERT INTO schema.tabela (colunas)
+-- VALUES (valores);
+
+-- CONSULTAR
+-- SELECT colunas FROM schema.tabela;
+
+-- FILTRAR
+-- SELECT * FROM schema.tabela WHERE condicao;
+
+-- INNER JOIN
+-- SELECT colunas
+-- FROM schema.tabela1 AS A
+-- INNER JOIN schema.tabela2 AS B
+-- ON A.ID = B.ID;
+
+-- LEFT JOIN
+-- SELECT colunas
+-- FROM schema.tabela1 AS A
+-- LEFT JOIN schema.tabela2 AS B
+-- ON A.ID = B.ID;
+
+-- UPDATE
+-- UPDATE schema.tabela
+-- SET coluna = valor
+-- WHERE condicao;
+
+-- DELETE
+-- DELETE FROM schema.tabela WHERE condicao;
+
+-- ELIMINAR TODOS OS REGISTOS
+-- DELETE FROM schema.tabela;
+
+-- ELIMINAR TABELA
+-- DROP TABLE schema.tabela;
+
+-- ELIMINAR SCHEMA
+-- DROP SCHEMA nome;
+
+-- ADICIONAR UM MES
+-- DATEADD(MONTH, 1, coluna);
+
+-- DATA ATUAL
+-- GETDATE();
+
+-- VERIFICAR NULL
+-- WHERE coluna IS NULL;
+
+-- VERIFICAR NAO NULL
+-- WHERE coluna IS NOT NULL;
+
+-- LISTAR TABELAS
+-- SELECT * FROM INFORMATION_SCHEMA.TABLES
+-- WHERE TABLE_SCHEMA = 'nome';
+
+-- LISTAR COLUNAS
+-- SELECT * FROM INFORMATION_SCHEMA.COLUMNS
+-- WHERE TABLE_SCHEMA = 'nome'
+-- AND TABLE_NAME = 'tabela';
+
+
+-- ============================================================
+-- FIM DO GUIA DE CONSULTA SQL SERVER
+-- ============================================================
