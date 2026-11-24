@@ -1,0 +1,4148 @@
+-- ============================================================
+-- GUIA DE CONSULTA - MICROSOFT SQL SERVER
+-- T-SQL, CONSULTAS AVANCADAS, FUNCOES E TRIGGERS
+-- ============================================================
+
+-- INDICE
+--
+-- 01. Criacao de estruturas de exemplo
+-- 02. INNER JOIN e LEFT JOIN
+-- 03. Funcoes de agregacao
+-- 04. Subqueries
+-- 05. Subqueries correlacionadas
+-- 06. EXISTS e NOT EXISTS
+-- 07. ISNULL e COALESCE
+-- 08. CONCAT, CAST e CONVERT
+-- 09. CASE WHEN
+-- 10. UNION e UNION ALL
+-- 11. INTERSECT e EXCEPT
+-- 12. Views
+-- 13. INSERT INTO SELECT
+-- 14. Variaveis
+-- 15. IF e ELSE
+-- 16. WHILE
+-- 17. BREAK e CONTINUE
+-- 18. Variaveis de sistema
+-- 19. Transacoes
+-- 20. TRY e CATCH
+-- 21. THROW e RAISERROR
+-- 22. Transacoes com tratamento de erros
+-- 23. Registo de historico
+-- 24. Reverter alteracoes
+-- 25. Funcoes escalares
+-- 26. Funcoes que devolvem tabelas
+-- 27. Stored procedures
+-- 28. Triggers
+-- 29. INSERTED e DELETED
+-- 30. Trigger de INSERT
+-- 31. Trigger de UPDATE
+-- 32. Trigger de DELETE
+-- 33. Trigger de validacao
+-- 34. Trigger de historico
+-- 35. INSTEAD OF
+-- 36. Tabelas temporarias
+-- 37. Variaveis do tipo TABLE
+-- 38. CTE
+-- 39. CROSS APPLY e OUTER APPLY
+-- 40. Limpeza dos objetos
+-- 41. Resumo rapido de sintaxe
+-- 42. Erros comuns
+--
+-- Os exemplos comentados com /* e */ sao alternativas
+-- ou demonstracoes independentes.
+
+
+-- ============================================================
+-- 01. CRIACAO DE ESTRUTURAS DE EXEMPLO
+-- GitBook: Lesson 05 - CREATE
+-- GitBook: Lesson 06 - CONSTRAINTS
+-- GitBook: Lesson 07 - FOREIGN KEYS
+-- ============================================================
+
+CREATE SCHEMA Futebol;
+GO
+
+CREATE TABLE Futebol.Clube (
+    IDCLUBE INT NOT NULL,
+    NOME VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Futebol.Jogador (
+    IDJOGADOR INT NOT NULL,
+    NOME VARCHAR(100) NOT NULL,
+    IDCLUBE INT NULL,
+    SALARIO DECIMAL(10,2) NOT NULL,
+    DATAINICIO DATE NOT NULL
+);
+
+CREATE TABLE Futebol.Historico (
+    IDHISTORICO INT IDENTITY(1,1) NOT NULL,
+    IDJOGADOR INT NOT NULL,
+    IDCLUBE INT NULL,
+    SALARIO DECIMAL(10,2) NOT NULL,
+    DATAINICIO DATE NOT NULL,
+    DATAFIM DATE NOT NULL
+);
+
+
+-- PRIMARY KEYS
+
+ALTER TABLE Futebol.Clube
+ADD CONSTRAINT PK_CLUBE
+PRIMARY KEY (IDCLUBE);
+
+ALTER TABLE Futebol.Jogador
+ADD CONSTRAINT PK_JOGADOR
+PRIMARY KEY (IDJOGADOR);
+
+ALTER TABLE Futebol.Historico
+ADD CONSTRAINT PK_HISTORICO
+PRIMARY KEY (IDHISTORICO);
+
+
+-- FOREIGN KEYS
+
+ALTER TABLE Futebol.Jogador
+ADD CONSTRAINT FK_JOGADOR_CLUBE
+FOREIGN KEY (IDCLUBE)
+REFERENCES Futebol.Clube (IDCLUBE);
+
+ALTER TABLE Futebol.Historico
+ADD CONSTRAINT FK_HISTORICO_JOGADOR
+FOREIGN KEY (IDJOGADOR)
+REFERENCES Futebol.Jogador (IDJOGADOR);
+
+ALTER TABLE Futebol.Historico
+ADD CONSTRAINT FK_HISTORICO_CLUBE
+FOREIGN KEY (IDCLUBE)
+REFERENCES Futebol.Clube (IDCLUBE);
+
+
+-- CHECK
+
+ALTER TABLE Futebol.Jogador
+ADD CONSTRAINT CK_SALARIO
+CHECK (SALARIO > 0);
+
+ALTER TABLE Futebol.Historico
+ADD CONSTRAINT CK_HISTORICO_DATAS
+CHECK (DATAFIM >= DATAINICIO);
+
+
+-- INSERIR CLUBES
+
+INSERT INTO Futebol.Clube
+    (IDCLUBE, NOME)
+VALUES
+    (1, 'Porto'),
+    (2, 'Benfica'),
+    (3, 'Sporting'),
+    (4, 'Braga');
+
+
+-- INSERIR JOGADORES
+
+INSERT INTO Futebol.Jogador
+    (IDJOGADOR, NOME, IDCLUBE, SALARIO, DATAINICIO)
+VALUES
+    (1, 'Ronaldo', 1, 50000, '2024-07-01'),
+    (2, 'Messi', 2, 60000, '2024-07-01'),
+    (3, 'Pepe', 1, 30000, '2023-07-01'),
+    (4, 'Neymar', 3, 40000, '2024-07-01'),
+    (5, 'Diogo', NULL, 10000, '2024-07-01');
+
+
+-- INSERIR HISTORICO
+
+INSERT INTO Futebol.Historico
+    (IDJOGADOR, IDCLUBE, SALARIO, DATAINICIO, DATAFIM)
+VALUES
+    (1, 2, 20000, '2020-07-01', '2022-07-01'),
+    (1, 3, 30000, '2022-07-01', '2024-07-01'),
+    (2, 1, 40000, '2020-07-01', '2024-07-01');
+
+
+-- CONSULTAR TABELAS
+
+SELECT * FROM Futebol.Clube;
+
+SELECT * FROM Futebol.Jogador;
+
+SELECT * FROM Futebol.Historico;
+
+
+-- ============================================================
+-- 02. INNER JOIN E LEFT JOIN
+-- GitBook: Lesson 08 - Horizontal join syntax
+-- ============================================================
+
+-- INNER JOIN:
+-- Apenas registos com correspondencia nas duas tabelas.
+
+SELECT
+    J.NOME,
+    C.NOME AS CLUBE,
+    J.SALARIO
+FROM Futebol.Jogador AS J
+INNER JOIN Futebol.Clube AS C
+ON J.IDCLUBE = C.IDCLUBE;
+
+
+-- LEFT JOIN:
+-- Todos os registos da tabela esquerda.
+
+SELECT
+    J.NOME,
+    C.NOME AS CLUBE,
+    J.SALARIO
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Clube AS C
+ON J.IDCLUBE = C.IDCLUBE;
+
+
+-- LISTAR TODOS OS JOGADORES E O RESPETIVO HISTORICO
+
+SELECT *
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR;
+
+
+-- LISTAR APENAS JOGADORES SEM HISTORICO
+
+SELECT J.*
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR
+WHERE H.IDHISTORICO IS NULL;
+
+
+-- LISTAR APENAS JOGADORES COM HISTORICO
+
+SELECT DISTINCT J.*
+FROM Futebol.Jogador AS J
+INNER JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR;
+
+
+-- JOIN COM VARIAS TABELAS
+
+SELECT
+    J.NOME AS JOGADOR,
+    C.NOME AS CLUBE_ANTERIOR,
+    H.SALARIO,
+    H.DATAINICIO,
+    H.DATAFIM
+FROM Futebol.Jogador AS J
+INNER JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR
+LEFT JOIN Futebol.Clube AS C
+ON H.IDCLUBE = C.IDCLUBE;
+
+
+-- ============================================================
+-- 03. FUNCOES DE AGREGACAO
+-- GitBook: Lesson 04 - GROUP FUNCTIONS AND SET OPERATORS
+-- ============================================================
+
+-- CONTAR TODOS OS JOGADORES
+
+SELECT COUNT(*)
+FROM Futebol.Jogador;
+
+
+-- CONTAR TODOS OS REGISTOS DE HISTORICO
+
+SELECT COUNT(*)
+FROM Futebol.Historico;
+
+
+-- CONTAR JOGADORES DIFERENTES COM HISTORICO
+
+SELECT COUNT(DISTINCT IDJOGADOR)
+FROM Futebol.Historico;
+
+
+-- CONTAR REGISTOS DE HISTORICO POR JOGADOR
+
+SELECT
+    IDJOGADOR,
+    COUNT(*) AS TOTAL
+FROM Futebol.Historico
+GROUP BY IDJOGADOR;
+
+
+-- CONTAR HISTORICO INCLUINDO JOGADORES SEM HISTORICO
+
+SELECT
+    J.IDJOGADOR,
+    J.NOME,
+    COUNT(H.IDHISTORICO) AS TOTAL
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR
+GROUP BY J.IDJOGADOR, J.NOME;
+
+
+-- SUM: SOMA
+
+SELECT SUM(SALARIO)
+FROM Futebol.Jogador;
+
+
+-- AVG: MEDIA
+
+SELECT AVG(SALARIO)
+FROM Futebol.Jogador;
+
+
+-- MAX: MAIOR VALOR
+
+SELECT MAX(SALARIO)
+FROM Futebol.Jogador;
+
+
+-- MIN: MENOR VALOR
+
+SELECT MIN(SALARIO)
+FROM Futebol.Jogador;
+
+
+-- HAVING: FILTRAR GRUPOS
+
+SELECT
+    IDJOGADOR,
+    COUNT(*) AS TOTAL
+FROM Futebol.Historico
+GROUP BY IDJOGADOR
+HAVING COUNT(*) > 1;
+
+
+-- WHERE filtra registos.
+-- HAVING filtra grupos.
+-- COUNT(*) conta todas as linhas.
+-- COUNT(coluna) ignora valores NULL.
+-- COUNT(DISTINCT coluna) conta valores diferentes nao nulos.
+
+
+-- ============================================================
+-- 04. SUBQUERIES
+-- GitBook: Lesson 08 - JOIN vs. Nested queries
+-- ============================================================
+
+-- Uma subquery e uma consulta dentro de outra consulta.
+-- Pode aparecer no SELECT, FROM ou WHERE.
+
+
+-- JOGADORES COM HISTORICO SEM UTILIZAR JOIN
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR IN (
+    SELECT IDJOGADOR
+    FROM Futebol.Historico
+);
+
+
+-- JOGADORES SEM HISTORICO SEM UTILIZAR JOIN
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR NOT IN (
+    SELECT IDJOGADOR
+    FROM Futebol.Historico
+);
+
+
+-- NOT IN pode produzir resultados inesperados
+-- se a subquery devolver valores NULL.
+
+
+-- JOGADORES COM SALARIO SUPERIOR A MEDIA
+
+SELECT *
+FROM Futebol.Jogador
+WHERE SALARIO > (
+    SELECT AVG(SALARIO)
+    FROM Futebol.Jogador
+);
+
+
+-- JOGADORES COM O MAIOR SALARIO
+
+SELECT *
+FROM Futebol.Jogador
+WHERE SALARIO = (
+    SELECT MAX(SALARIO)
+    FROM Futebol.Jogador
+);
+
+
+-- SUBQUERY NO FROM
+-- A tabela derivada deve possuir um alias.
+
+SELECT *
+FROM (
+    SELECT
+        IDCLUBE,
+        AVG(SALARIO) AS MEDIA
+    FROM Futebol.Jogador
+    GROUP BY IDCLUBE
+) AS RESULTADO
+WHERE MEDIA > 30000;
+
+
+-- ============================================================
+-- 05. SUBQUERIES CORRELACIONADAS
+-- ============================================================
+
+-- Uma subquery correlacionada utiliza valores
+-- da consulta exterior.
+
+
+-- OBTER NOME DO CLUBE SEM UTILIZAR JOIN
+
+SELECT
+    J.NOME,
+    J.SALARIO,
+    (
+        SELECT C.NOME
+        FROM Futebol.Clube AS C
+        WHERE C.IDCLUBE = J.IDCLUBE
+    ) AS CLUBE
+FROM Futebol.Jogador AS J;
+
+
+-- Uma subquery escalar deve devolver no maximo uma linha.
+-- Se nao devolver nenhuma linha, o resultado e NULL.
+
+
+-- OBTER QUANTIDADE DE REGISTOS DE HISTORICO POR JOGADOR
+
+SELECT
+    J.NOME,
+    (
+        SELECT COUNT(*)
+        FROM Futebol.Historico AS H
+        WHERE H.IDJOGADOR = J.IDJOGADOR
+    ) AS TOTAL_HISTORICO
+FROM Futebol.Jogador AS J;
+
+
+-- OBTER CLUBE ATUAL E CLUBE ANTERIOR
+
+SELECT
+    J.IDJOGADOR,
+    J.NOME,
+    (
+        SELECT C.NOME
+        FROM Futebol.Clube AS C
+        WHERE C.IDCLUBE = J.IDCLUBE
+    ) AS CLUBE_ATUAL,
+    J.DATAINICIO AS INICIO_ATUAL,
+    (
+        SELECT C.NOME
+        FROM Futebol.Clube AS C
+        WHERE C.IDCLUBE = H.IDCLUBE
+    ) AS CLUBE_ANTERIOR,
+    H.DATAINICIO AS INICIO_ANTERIOR,
+    H.DATAFIM AS FIM_ANTERIOR
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR
+ORDER BY J.NOME, H.DATAINICIO DESC;
+
+
+-- OBTER APENAS O ULTIMO CLUBE ANTERIOR
+
+SELECT
+    J.NOME,
+    (
+        SELECT TOP (1) C.NOME
+        FROM Futebol.Historico AS H
+        LEFT JOIN Futebol.Clube AS C
+        ON H.IDCLUBE = C.IDCLUBE
+        WHERE H.IDJOGADOR = J.IDJOGADOR
+        ORDER BY H.DATAFIM DESC, H.IDHISTORICO DESC
+    ) AS ULTIMO_CLUBE
+FROM Futebol.Jogador AS J;
+
+
+-- ============================================================
+-- 06. EXISTS E NOT EXISTS
+-- ============================================================
+
+-- EXISTS verifica se a subquery devolve algum registo.
+-- NOT EXISTS verifica se nao devolve nenhum registo.
+
+
+-- JOGADORES COM HISTORICO
+
+SELECT *
+FROM Futebol.Jogador AS J
+WHERE EXISTS (
+    SELECT 1
+    FROM Futebol.Historico AS H
+    WHERE H.IDJOGADOR = J.IDJOGADOR
+);
+
+
+-- JOGADORES SEM HISTORICO
+
+SELECT *
+FROM Futebol.Jogador AS J
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM Futebol.Historico AS H
+    WHERE H.IDJOGADOR = J.IDJOGADOR
+);
+
+
+-- CLUBES SEM JOGADORES
+
+SELECT *
+FROM Futebol.Clube AS C
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM Futebol.Jogador AS J
+    WHERE J.IDCLUBE = C.IDCLUBE
+);
+
+
+-- ============================================================
+-- 07. ISNULL E COALESCE
+-- ============================================================
+
+-- ISNULL substitui um valor NULL por outro valor.
+-- ISNULL(valor, substituicao)
+
+
+-- SUBSTITUIR CLUBE NULL POR TEXTO
+
+SELECT
+    J.NOME,
+    ISNULL(C.NOME, 'Sem clube') AS CLUBE
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Clube AS C
+ON J.IDCLUBE = C.IDCLUBE;
+
+
+-- UTILIZAR DATA DE HISTORICO OU DATA ATUAL DO CONTRATO
+
+SELECT
+    J.NOME,
+    ISNULL(H.DATAINICIO, J.DATAINICIO) AS DATAINICIO
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR;
+
+
+-- COALESCE devolve o primeiro valor nao nulo.
+-- Pode receber mais de dois argumentos.
+
+SELECT COALESCE(NULL, NULL, 'Texto');
+
+
+-- ISNULL aceita dois argumentos.
+-- COALESCE aceita varios argumentos.
+
+
+-- ============================================================
+-- 08. CONCAT, CAST E CONVERT
+-- ============================================================
+
+-- CONCAT junta varios valores numa string.
+
+SELECT CONCAT('Cristiano', ' ', 'Ronaldo');
+
+
+-- CONCATENAR COLUNAS
+
+SELECT
+    CONCAT(J.NOME, ' - ', C.NOME) AS DESCRICAO
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Clube AS C
+ON J.IDCLUBE = C.IDCLUBE;
+
+
+-- CONCATENACAO COM +
+
+SELECT 'Cristiano' + ' ' + 'Ronaldo';
+
+
+-- CONCAT trata NULL como texto vazio.
+-- A concatenacao com + pode devolver NULL.
+
+
+-- CAST converte um valor para outro tipo.
+
+SELECT CAST(100 AS VARCHAR(10));
+
+SELECT CAST('2024-07-01' AS DATE);
+
+SELECT CAST(GETDATE() AS DATE);
+
+
+-- CONCATENAR TEXTO E NUMEROS
+
+SELECT
+    'Salario: ' + CAST(SALARIO AS VARCHAR(20))
+FROM Futebol.Jogador;
+
+
+-- CONVERT tambem converte tipos de dados.
+
+SELECT CONVERT(VARCHAR(10), GETDATE(), 23);
+
+
+-- Estilo 23: YYYY-MM-DD.
+-- Estilo 103: DD/MM/YYYY.
+
+SELECT CONVERT(VARCHAR(10), GETDATE(), 103);
+
+
+-- TRY_CAST devolve NULL se a conversao falhar,
+-- desde que a conversao seja permitida entre os tipos.
+
+SELECT TRY_CAST('ABC' AS INT);
+
+
+-- ============================================================
+-- 09. CASE WHEN
+-- ============================================================
+
+-- CASE permite devolver valores diferentes
+-- dependendo de uma condicao.
+
+
+-- CLASSIFICAR JOGADORES POR SALARIO
+
+SELECT
+    NOME,
+    SALARIO,
+    CASE
+        WHEN SALARIO >= 50000 THEN 'Alto'
+        WHEN SALARIO >= 20000 THEN 'Medio'
+        ELSE 'Baixo'
+    END AS CLASSIFICACAO
+FROM Futebol.Jogador;
+
+
+-- VERIFICAR SE POSSUI CLUBE
+
+SELECT
+    NOME,
+    CASE
+        WHEN IDCLUBE IS NULL THEN 'Sem clube'
+        ELSE 'Com clube'
+    END AS ESTADO
+FROM Futebol.Jogador;
+
+
+-- CASE SIMPLES
+
+SELECT
+    NOME,
+    CASE IDCLUBE
+        WHEN 1 THEN 'Porto'
+        WHEN 2 THEN 'Benfica'
+        WHEN 3 THEN 'Sporting'
+        ELSE 'Outro'
+    END AS CLUBE
+FROM Futebol.Jogador;
+
+
+-- CASE devolve um valor.
+-- IF controla a execucao de instrucoes.
+
+
+-- ============================================================
+-- 10. UNION E UNION ALL
+-- GitBook: Lesson 04 - GROUP FUNCTIONS AND SET OPERATORS
+-- ============================================================
+
+-- UNION combina resultados e elimina duplicados.
+-- UNION ALL combina resultados mantendo duplicados.
+--
+-- As consultas devem ter:
+-- 1. O mesmo numero de colunas.
+-- 2. Tipos de dados compativeis.
+-- 3. Colunas na mesma ordem logica.
+
+
+-- COMBINAR JOGADORES ATUAIS COM HISTORICO
+
+SELECT
+    IDJOGADOR,
+    IDCLUBE,
+    SALARIO,
+    DATAINICIO,
+    CAST(NULL AS DATE) AS DATAFIM
+FROM Futebol.Jogador
+
+UNION ALL
+
+SELECT
+    IDJOGADOR,
+    IDCLUBE,
+    SALARIO,
+    DATAINICIO,
+    DATAFIM
+FROM Futebol.Historico
+
+ORDER BY IDJOGADOR, DATAINICIO;
+
+
+-- COMBINAR DATAS COM TEXTO 'ATUAL'
+-- E necessario converter a data para VARCHAR.
+
+SELECT
+    J.IDJOGADOR,
+    J.NOME,
+    J.DATAINICIO,
+    'Atual' AS DATAFIM
+FROM Futebol.Jogador AS J
+
+UNION ALL
+
+SELECT
+    H.IDJOGADOR,
+    (
+        SELECT J.NOME
+        FROM Futebol.Jogador AS J
+        WHERE J.IDJOGADOR = H.IDJOGADOR
+    ),
+    H.DATAINICIO,
+    CAST(H.DATAFIM AS VARCHAR(12))
+FROM Futebol.Historico AS H
+
+ORDER BY NOME, DATAINICIO;
+
+
+-- HISTORICO COMPLETO COM NOMES DOS CLUBES
+
+SELECT
+    J.IDJOGADOR,
+    J.NOME,
+    (
+        SELECT C.NOME
+        FROM Futebol.Clube AS C
+        WHERE C.IDCLUBE = J.IDCLUBE
+    ) AS CLUBE,
+    J.SALARIO,
+    J.DATAINICIO,
+    'Atual' AS DATAFIM
+FROM Futebol.Jogador AS J
+
+UNION ALL
+
+SELECT
+    H.IDJOGADOR,
+    (
+        SELECT J.NOME
+        FROM Futebol.Jogador AS J
+        WHERE J.IDJOGADOR = H.IDJOGADOR
+    ),
+    (
+        SELECT C.NOME
+        FROM Futebol.Clube AS C
+        WHERE C.IDCLUBE = H.IDCLUBE
+    ),
+    H.SALARIO,
+    H.DATAINICIO,
+    CAST(H.DATAFIM AS VARCHAR(12))
+FROM Futebol.Historico AS H
+
+ORDER BY NOME, DATAINICIO DESC;
+
+
+-- ORDER BY deve aparecer no final do UNION.
+-- Os nomes das colunas resultam do primeiro SELECT.
+
+
+-- ============================================================
+-- 11. INTERSECT E EXCEPT
+-- GitBook: Lesson 04 - GROUP FUNCTIONS AND SET OPERATORS
+-- ============================================================
+
+-- INTERSECT devolve os valores comuns aos dois resultados.
+
+SELECT IDJOGADOR
+FROM Futebol.Jogador
+
+INTERSECT
+
+SELECT IDJOGADOR
+FROM Futebol.Historico;
+
+
+-- EXCEPT devolve os valores do primeiro resultado
+-- que nao existem no segundo resultado.
+
+SELECT IDJOGADOR
+FROM Futebol.Jogador
+
+EXCEPT
+
+SELECT IDJOGADOR
+FROM Futebol.Historico;
+
+
+-- UNION elimina duplicados.
+-- UNION ALL mantem duplicados.
+-- INTERSECT devolve valores comuns distintos.
+-- EXCEPT devolve valores distintos exclusivos do primeiro.
+
+
+-- ============================================================
+-- 12. VIEWS
+-- GitBook: Lesson 05 - Views
+-- ============================================================
+
+-- Uma VIEW e uma consulta guardada na base de dados.
+-- Pode ser consultada como uma tabela.
+-- Normalmente nao guarda uma copia dos dados.
+-- CREATE VIEW deve iniciar um batch.
+
+
+GO
+
+CREATE VIEW Futebol.vw_HistoricoCompleto
+AS
+
+SELECT
+    J.IDJOGADOR,
+    J.NOME,
+    (
+        SELECT C.NOME
+        FROM Futebol.Clube AS C
+        WHERE C.IDCLUBE = J.IDCLUBE
+    ) AS CLUBE,
+    J.SALARIO,
+    J.DATAINICIO,
+    'Atual' AS DATAFIM
+FROM Futebol.Jogador AS J
+
+UNION ALL
+
+SELECT
+    H.IDJOGADOR,
+    (
+        SELECT J.NOME
+        FROM Futebol.Jogador AS J
+        WHERE J.IDJOGADOR = H.IDJOGADOR
+    ),
+    (
+        SELECT C.NOME
+        FROM Futebol.Clube AS C
+        WHERE C.IDCLUBE = H.IDCLUBE
+    ),
+    H.SALARIO,
+    H.DATAINICIO,
+    CAST(H.DATAFIM AS VARCHAR(12))
+FROM Futebol.Historico AS H;
+
+GO
+
+
+-- CONSULTAR VIEW
+
+SELECT *
+FROM Futebol.vw_HistoricoCompleto;
+
+
+-- CONSULTAR VIEW COM FILTRO
+
+SELECT *
+FROM Futebol.vw_HistoricoCompleto
+WHERE IDJOGADOR = 1
+ORDER BY DATAINICIO DESC;
+
+
+-- ALTERAR VIEW
+
+GO
+
+CREATE VIEW Futebol.vw_Jogadores
+AS
+SELECT IDJOGADOR, NOME
+FROM Futebol.Jogador;
+
+GO
+
+ALTER VIEW Futebol.vw_Jogadores
+AS
+SELECT IDJOGADOR, NOME, SALARIO
+FROM Futebol.Jogador;
+
+GO
+
+
+-- CONSULTAR VIEWS EXISTENTES
+
+SELECT *
+FROM INFORMATION_SCHEMA.VIEWS
+WHERE TABLE_SCHEMA = 'Futebol';
+
+
+-- ELIMINAR VIEW
+
+DROP VIEW Futebol.vw_Jogadores;
+
+
+-- Nao colocar ORDER BY numa VIEW normal.
+-- Aplicar ORDER BY quando se consulta a VIEW.
+
+
+-- ============================================================
+-- 13. INSERT INTO SELECT
+-- GitBook: Lesson 05 - Insert data from queries
+-- ============================================================
+
+-- INSERT INTO SELECT permite inserir o resultado
+-- de uma consulta noutra tabela.
+
+
+-- CRIAR TABELA PARA GUARDAR UMA COPIA DOS JOGADORES
+
+CREATE TABLE Futebol.CopiaJogador (
+    IDJOGADOR INT,
+    NOME VARCHAR(100),
+    SALARIO DECIMAL(10,2)
+);
+
+
+-- INSERIR DADOS DE OUTRA TABELA
+
+INSERT INTO Futebol.CopiaJogador
+    (IDJOGADOR, NOME, SALARIO)
+SELECT
+    IDJOGADOR,
+    NOME,
+    SALARIO
+FROM Futebol.Jogador;
+
+
+SELECT *
+FROM Futebol.CopiaJogador;
+
+
+-- INSERIR APENAS DADOS QUE RESPEITAM UMA CONDICAO
+
+INSERT INTO Futebol.CopiaJogador
+    (IDJOGADOR, NOME, SALARIO)
+SELECT
+    IDJOGADOR,
+    NOME,
+    SALARIO
+FROM Futebol.Jogador
+WHERE SALARIO > 50000;
+
+
+-- SELECT INTO
+-- Cria uma nova tabela com o resultado da consulta.
+-- A tabela de destino ainda nao pode existir.
+
+SELECT
+    IDJOGADOR,
+    NOME,
+    SALARIO
+INTO Futebol.CopiaSalarios
+FROM Futebol.Jogador;
+
+
+-- SELECT INTO nao copia automaticamente
+-- todas as restricoes e indices da tabela original.
+
+
+-- ============================================================
+-- 14. VARIAVEIS
+-- T-SQL
+-- ============================================================
+
+-- DECLARE cria uma variavel.
+-- As variaveis locais comecam por @.
+
+
+-- DECLARAR VARIAVEL
+
+DECLARE @Numero INT;
+
+
+-- ATRIBUIR VALOR
+
+SET @Numero = 10;
+
+
+-- APRESENTAR VALOR
+
+SELECT @Numero AS NUMERO;
+
+PRINT @Numero;
+
+GO
+
+
+-- DECLARAR E INICIALIZAR
+
+DECLARE @Nome VARCHAR(100) = 'Ronaldo';
+
+SELECT @Nome AS NOME;
+
+GO
+
+
+-- DECLARAR VARIAS VARIAVEIS
+
+DECLARE
+    @ID INT = 1,
+    @Salario DECIMAL(10,2),
+    @Clube INT;
+
+SELECT
+    @Salario = SALARIO,
+    @Clube = IDCLUBE
+FROM Futebol.Jogador
+WHERE IDJOGADOR = @ID;
+
+SELECT
+    @Salario AS SALARIO,
+    @Clube AS CLUBE;
+
+GO
+
+
+-- ATRIBUIR RESULTADO DE UMA SUBQUERY
+
+DECLARE @Total INT;
+
+SET @Total = (
+    SELECT COUNT(*)
+    FROM Futebol.Jogador
+);
+
+SELECT @Total AS TOTAL;
+
+GO
+
+
+-- UTILIZAR VARIAVEL NUM WHERE
+
+DECLARE @ID INT = 2;
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR = @ID;
+
+GO
+
+
+-- UTILIZAR VARIAVEL NUM UPDATE
+
+DECLARE @ID INT = 1;
+DECLARE @NovoSalario DECIMAL(10,2) = 55000;
+
+UPDATE Futebol.Jogador
+SET SALARIO = @NovoSalario
+WHERE IDJOGADOR = @ID;
+
+GO
+
+
+-- DIFERENCA ENTRE SET E SELECT
+--
+-- SET @Variavel = valor;
+-- Atribui um valor a uma variavel.
+--
+-- SELECT @Variavel = coluna FROM tabela;
+-- Permite atribuir valores a varias variaveis.
+--
+-- Se SELECT devolver varias linhas, nao utilizar
+-- a atribuicao como se fosse uma consulta escalar.
+--
+-- Uma variavel local deixa de existir apos GO.
+
+
+-- ============================================================
+-- 15. IF E ELSE
+-- T-SQL - Estruturas de controlo
+-- ============================================================
+
+-- IF executa instrucoes se a condicao for verdadeira.
+-- ELSE executa instrucoes quando a condicao nao e verdadeira.
+
+
+DECLARE @Numero INT = 10;
+
+IF @Numero > 5
+BEGIN
+    PRINT 'Maior que cinco';
+END
+ELSE
+BEGIN
+    PRINT 'Menor ou igual a cinco';
+END;
+
+GO
+
+
+-- VERIFICAR SE UM JOGADOR EXISTE
+
+DECLARE @ID INT = 1;
+
+IF EXISTS (
+    SELECT 1
+    FROM Futebol.Jogador
+    WHERE IDJOGADOR = @ID
+)
+BEGIN
+    PRINT 'Jogador encontrado';
+END
+ELSE
+BEGIN
+    PRINT 'Jogador inexistente';
+END;
+
+GO
+
+
+-- VERIFICAR SE UM JOGADOR TEM HISTORICO
+
+DECLARE @ID INT = 1;
+
+IF EXISTS (
+    SELECT 1
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = @ID
+)
+BEGIN
+    SELECT *
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = @ID;
+END
+ELSE
+BEGIN
+    PRINT 'Jogador sem historico';
+END;
+
+GO
+
+
+-- ELSE IF
+
+DECLARE @Salario DECIMAL(10,2) = 30000;
+
+IF @Salario >= 50000
+BEGIN
+    PRINT 'Salario alto';
+END
+ELSE IF @Salario >= 20000
+BEGIN
+    PRINT 'Salario medio';
+END
+ELSE
+BEGIN
+    PRINT 'Salario baixo';
+END;
+
+GO
+
+
+-- ============================================================
+-- 16. WHILE
+-- T-SQL - Estruturas de controlo
+-- ============================================================
+
+-- WHILE repete instrucoes enquanto uma condicao
+-- for verdadeira.
+
+
+DECLARE @Contador INT = 1;
+
+WHILE @Contador <= 5
+BEGIN
+    PRINT @Contador;
+
+    SET @Contador = @Contador + 1;
+END;
+
+GO
+
+
+-- RESULTADO:
+-- 1
+-- 2
+-- 3
+-- 4
+-- 5
+
+
+-- CALCULAR SOMA DE 1 A 10
+
+DECLARE @Contador INT = 1;
+DECLARE @Soma INT = 0;
+
+WHILE @Contador <= 10
+BEGIN
+    SET @Soma = @Soma + @Contador;
+
+    SET @Contador = @Contador + 1;
+END;
+
+SELECT @Soma AS SOMA;
+
+GO
+
+
+-- Evitar ciclos infinitos.
+-- Garantir que a condicao pode deixar de ser verdadeira.
+-- Preferir operacoes sobre conjuntos quando possivel.
+
+
+-- ============================================================
+-- 17. BREAK E CONTINUE
+-- ============================================================
+
+-- BREAK termina imediatamente o ciclo.
+
+DECLARE @Contador INT = 1;
+
+WHILE @Contador <= 10
+BEGIN
+    IF @Contador = 5
+    BEGIN
+        BREAK;
+    END;
+
+    PRINT @Contador;
+
+    SET @Contador = @Contador + 1;
+END;
+
+GO
+
+
+-- RESULTADO:
+-- 1
+-- 2
+-- 3
+-- 4
+
+
+-- CONTINUE passa para a proxima iteracao.
+
+DECLARE @Contador INT = 0;
+
+WHILE @Contador < 5
+BEGIN
+    SET @Contador = @Contador + 1;
+
+    IF @Contador = 3
+    BEGIN
+        CONTINUE;
+    END;
+
+    PRINT @Contador;
+END;
+
+GO
+
+
+-- RESULTADO:
+-- 1
+-- 2
+-- 4
+-- 5
+
+
+-- ============================================================
+-- 18. VARIAVEIS E FUNCOES DE SISTEMA
+-- ============================================================
+
+-- @@ROWCOUNT:
+-- Numero de linhas afetadas ou lidas pela ultima instrucao.
+
+UPDATE Futebol.Jogador
+SET SALARIO = SALARIO + 100
+WHERE IDCLUBE = 1;
+
+SELECT @@ROWCOUNT AS LINHAS_AFETADAS;
+
+
+-- Guardar @@ROWCOUNT imediatamente apos a instrucao.
+-- Outras instrucoes podem alterar o seu valor.
+
+
+-- @@TRANCOUNT:
+-- Numero de niveis de transacao abertos.
+
+SELECT @@TRANCOUNT AS TRANSACOES;
+
+
+-- @@ERROR:
+-- Numero do erro da ultima instrucao.
+-- Zero significa que nao ocorreu erro nessa instrucao.
+-- Deve ser consultado imediatamente.
+
+SELECT @@ERROR AS ERRO;
+
+
+-- XACT_STATE():
+--  1 = Existe transacao que pode fazer COMMIT.
+--  0 = Nao existe transacao ativa.
+-- -1 = Existe transacao que nao pode fazer COMMIT.
+
+SELECT XACT_STATE() AS ESTADO_TRANSACAO;
+
+
+-- SCOPE_IDENTITY():
+-- Ultimo valor IDENTITY criado no mesmo scope.
+
+
+-- ============================================================
+-- 19. TRANSACOES
+-- ============================================================
+
+-- Uma transacao agrupa varias operacoes.
+-- Permite confirmar ou desfazer as alteracoes.
+--
+-- BEGIN TRANSACTION inicia uma transacao.
+-- COMMIT confirma as alteracoes.
+-- ROLLBACK desfaz as alteracoes.
+
+
+-- EXEMPLO COM COMMIT
+
+BEGIN TRANSACTION;
+
+UPDATE Futebol.Jogador
+SET SALARIO = 55000
+WHERE IDJOGADOR = 1;
+
+COMMIT;
+
+
+-- EXEMPLO COM ROLLBACK
+
+BEGIN TRANSACTION;
+
+UPDATE Futebol.Jogador
+SET SALARIO = 99999
+WHERE IDJOGADOR = 1;
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR = 1;
+
+ROLLBACK;
+
+
+-- O salario volta ao valor anterior.
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR = 1;
+
+
+-- TRANSACAO COM VARIAS OPERACOES
+
+BEGIN TRANSACTION;
+
+UPDATE Futebol.Jogador
+SET SALARIO = SALARIO - 1000
+WHERE IDJOGADOR = 1;
+
+UPDATE Futebol.Jogador
+SET SALARIO = SALARIO + 1000
+WHERE IDJOGADOR = 2;
+
+COMMIT;
+
+
+-- ACID:
+--
+-- Atomicity:
+-- Todas as operacoes sao realizadas ou desfeitas.
+--
+-- Consistency:
+-- A transacao deve preservar a consistencia dos dados.
+--
+-- Isolation:
+-- Controla a interferencia entre transacoes concorrentes.
+--
+-- Durability:
+-- Alteracoes confirmadas permanecem guardadas.
+
+
+-- SAVE TRANSACTION
+-- Permite criar um ponto de recuperacao.
+
+BEGIN TRANSACTION;
+
+UPDATE Futebol.Jogador
+SET SALARIO = SALARIO + 100
+WHERE IDJOGADOR = 1;
+
+SAVE TRANSACTION Ponto1;
+
+UPDATE Futebol.Jogador
+SET SALARIO = SALARIO + 500
+WHERE IDJOGADOR = 2;
+
+ROLLBACK TRANSACTION Ponto1;
+
+COMMIT;
+
+
+-- A primeira alteracao permanece.
+-- A segunda alteracao e desfeita.
+
+
+-- ============================================================
+-- 20. TRY E CATCH
+-- ============================================================
+
+-- TRY executa instrucoes que podem provocar erros.
+-- CATCH trata os erros capturados no TRY.
+
+
+BEGIN TRY
+
+    SELECT 10 / 0 AS RESULTADO;
+
+END TRY
+BEGIN CATCH
+
+    PRINT 'Ocorreu um erro';
+
+END CATCH;
+
+GO
+
+
+-- FUNCOES DE ERRO
+--
+-- ERROR_NUMBER(): Numero do erro.
+-- ERROR_MESSAGE(): Mensagem do erro.
+-- ERROR_LINE(): Linha do erro.
+-- ERROR_SEVERITY(): Gravidade do erro.
+-- ERROR_STATE(): Estado do erro.
+-- ERROR_PROCEDURE(): Procedimento ou trigger do erro.
+
+
+BEGIN TRY
+
+    SELECT 10 / 0 AS RESULTADO;
+
+END TRY
+BEGIN CATCH
+
+    SELECT
+        ERROR_NUMBER() AS NUMERO,
+        ERROR_MESSAGE() AS MENSAGEM,
+        ERROR_LINE() AS LINHA,
+        ERROR_SEVERITY() AS GRAVIDADE,
+        ERROR_STATE() AS ESTADO,
+        ERROR_PROCEDURE() AS PROCEDIMENTO;
+
+END CATCH;
+
+GO
+
+
+-- CONSTRUIR MENSAGEM PERSONALIZADA
+
+BEGIN TRY
+
+    SELECT 10 / 0 AS RESULTADO;
+
+END TRY
+BEGIN CATCH
+
+    SELECT
+        'Erro ' +
+        CAST(ERROR_NUMBER() AS VARCHAR(10)) +
+        ' na linha ' +
+        CAST(ERROR_LINE() AS VARCHAR(10)) +
+        ': ' +
+        ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- TRY e CATCH devem estar no mesmo batch.
+-- Nao colocar GO entre TRY e CATCH.
+-- Nem todos os tipos de erro sao capturados pelo TRY CATCH.
+
+
+-- ============================================================
+-- 21. THROW E RAISERROR
+-- ============================================================
+
+-- THROW permite gerar uma excecao.
+-- Numero de erro personalizado >= 50000.
+
+
+BEGIN TRY
+
+    THROW 50001, 'Erro personalizado', 1;
+
+END TRY
+BEGIN CATCH
+
+    SELECT ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- VALIDAR EXISTENCIA DE UM JOGADOR
+
+DECLARE @ID INT = 999;
+
+BEGIN TRY
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Futebol.Jogador
+        WHERE IDJOGADOR = @ID
+    )
+    BEGIN
+        THROW 50002, 'Jogador inexistente', 1;
+    END;
+
+END TRY
+BEGIN CATCH
+
+    SELECT ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- THROW SEM ARGUMENTOS
+-- Dentro de CATCH, volta a lancar o erro original.
+
+/*
+BEGIN TRY
+
+    SELECT 10 / 0;
+
+END TRY
+BEGIN CATCH
+
+    THROW;
+
+END CATCH;
+*/
+
+
+-- RAISERROR
+-- Alternativa mais antiga para gerar mensagens de erro.
+
+/*
+RAISERROR ('Jogador inexistente', 16, 1);
+*/
+
+
+-- THROW e normalmente preferivel em codigo novo.
+-- A instrucao anterior ao THROW deve terminar com ;
+
+
+-- ============================================================
+-- 22. TRANSACOES COM TRATAMENTO DE ERROS
+-- ============================================================
+
+-- Estrutura que permite desfazer as alteracoes
+-- quando uma das operacoes falha.
+
+
+BEGIN TRY
+
+    BEGIN TRANSACTION;
+
+    UPDATE Futebol.Jogador
+    SET SALARIO = 60000
+    WHERE IDJOGADOR = 1;
+
+    UPDATE Futebol.Jogador
+    SET SALARIO = 70000
+    WHERE IDJOGADOR = 2;
+
+    COMMIT;
+
+END TRY
+BEGIN CATCH
+
+    IF @@TRANCOUNT <> 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT
+        'Erro ' +
+        CAST(ERROR_NUMBER() AS VARCHAR(10)) +
+        ' na linha ' +
+        CAST(ERROR_LINE() AS VARCHAR(10)) +
+        ': ' +
+        ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- EXEMPLO EM QUE UMA OPERACAO FALHA
+
+BEGIN TRY
+
+    BEGIN TRANSACTION;
+
+    UPDATE Futebol.Jogador
+    SET SALARIO = 80000
+    WHERE IDJOGADOR = 1;
+
+    -- Este UPDATE viola CK_SALARIO.
+
+    UPDATE Futebol.Jogador
+    SET SALARIO = -100
+    WHERE IDJOGADOR = 2;
+
+    COMMIT;
+
+END TRY
+BEGIN CATCH
+
+    IF @@TRANCOUNT <> 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- Ambas as alteracoes sao desfeitas.
+
+
+-- ALTERNATIVA COM XACT_STATE()
+
+BEGIN TRY
+
+    BEGIN TRANSACTION;
+
+    UPDATE Futebol.Jogador
+    SET SALARIO = 65000
+    WHERE IDJOGADOR = 1;
+
+    COMMIT;
+
+END TRY
+BEGIN CATCH
+
+    IF XACT_STATE() <> 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- SET XACT_ABORT ON
+-- Muitos erros de execucao passam a provocar
+-- o cancelamento ou invalidacao da transacao.
+
+SET XACT_ABORT ON;
+
+-- Utilizar em conjunto com TRY CATCH e ROLLBACK.
+
+SET XACT_ABORT OFF;
+
+
+-- ============================================================
+-- 23. REGISTO DE HISTORICO
+-- ============================================================
+
+-- Quando um jogador muda de clube:
+--
+-- 1. Guardar os dados atuais na tabela Historico.
+-- 2. Alterar os dados atuais do jogador.
+-- 3. Atualizar a data de inicio.
+-- 4. Confirmar as operacoes numa transacao.
+
+
+DECLARE @ID INT = 1;
+DECLARE @NovoClube INT = 3;
+DECLARE @DataMudanca DATE = CAST(GETDATE() AS DATE);
+
+BEGIN TRY
+
+    BEGIN TRANSACTION;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Futebol.Jogador
+        WHERE IDJOGADOR = @ID
+    )
+    BEGIN
+        THROW 50001, 'Jogador inexistente', 1;
+    END;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Futebol.Clube
+        WHERE IDCLUBE = @NovoClube
+    )
+    BEGIN
+        THROW 50002, 'Clube inexistente', 1;
+    END;
+
+
+    -- Guardar os dados antigos.
+
+    INSERT INTO Futebol.Historico
+        (IDJOGADOR, IDCLUBE, SALARIO, DATAINICIO, DATAFIM)
+    SELECT
+        IDJOGADOR,
+        IDCLUBE,
+        SALARIO,
+        DATAINICIO,
+        @DataMudanca
+    FROM Futebol.Jogador
+    WHERE IDJOGADOR = @ID;
+
+
+    -- Atualizar os dados atuais.
+
+    UPDATE Futebol.Jogador
+    SET
+        IDCLUBE = @NovoClube,
+        DATAINICIO = @DataMudanca
+    WHERE IDJOGADOR = @ID;
+
+    COMMIT;
+
+END TRY
+BEGIN CATCH
+
+    IF @@TRANCOUNT <> 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT
+        ERROR_NUMBER() AS NUMERO,
+        ERROR_LINE() AS LINHA,
+        ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- CONSULTAR HISTORICO COMPLETO
+
+SELECT *
+FROM Futebol.vw_HistoricoCompleto
+WHERE IDJOGADOR = 1
+ORDER BY DATAINICIO DESC;
+
+
+-- ALTERNATIVA COM VALUES E SUBQUERIES ESCALARES
+-- Exemplo independente.
+
+/*
+INSERT INTO Futebol.Historico
+    (IDJOGADOR, IDCLUBE, SALARIO, DATAINICIO, DATAFIM)
+VALUES (
+    1,
+    (
+        SELECT IDCLUBE
+        FROM Futebol.Jogador
+        WHERE IDJOGADOR = 1
+    ),
+    (
+        SELECT SALARIO
+        FROM Futebol.Jogador
+        WHERE IDJOGADOR = 1
+    ),
+    (
+        SELECT DATAINICIO
+        FROM Futebol.Jogador
+        WHERE IDJOGADOR = 1
+    ),
+    GETDATE()
+);
+*/
+
+
+-- INSERT INTO SELECT evita repetir varias subqueries.
+
+
+-- ============================================================
+-- 24. REVERTER ALTERACOES ATRAVES DO HISTORICO
+-- ============================================================
+
+-- Recuperar os dados do ultimo registo de historico.
+-- Atualizar o jogador com os valores anteriores.
+-- Eliminar apenas o registo de historico recuperado.
+
+
+DECLARE @ID INT = 1;
+DECLARE @IDHistorico INT;
+
+BEGIN TRY
+
+    BEGIN TRANSACTION;
+
+    SELECT TOP (1)
+        @IDHistorico = IDHISTORICO
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = @ID
+    ORDER BY DATAFIM DESC, IDHISTORICO DESC;
+
+
+    IF @IDHistorico IS NULL
+    BEGIN
+        THROW 50003, 'Nao existe historico', 1;
+    END;
+
+
+    UPDATE Futebol.Jogador
+    SET
+        IDCLUBE = (
+            SELECT IDCLUBE
+            FROM Futebol.Historico
+            WHERE IDHISTORICO = @IDHistorico
+        ),
+        SALARIO = (
+            SELECT SALARIO
+            FROM Futebol.Historico
+            WHERE IDHISTORICO = @IDHistorico
+        ),
+        DATAINICIO = (
+            SELECT DATAINICIO
+            FROM Futebol.Historico
+            WHERE IDHISTORICO = @IDHistorico
+        )
+    WHERE IDJOGADOR = @ID;
+
+
+    DELETE FROM Futebol.Historico
+    WHERE IDHISTORICO = @IDHistorico;
+
+    COMMIT;
+
+END TRY
+BEGIN CATCH
+
+    IF @@TRANCOUNT <> 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- CONFIRMAR ALTERACOES
+
+SELECT *
+FROM Futebol.vw_HistoricoCompleto
+WHERE IDJOGADOR = 1
+ORDER BY DATAINICIO DESC;
+
+
+-- ALTERNATIVA: UPDATE COM JOIN
+
+/*
+UPDATE J
+SET
+    J.IDCLUBE = H.IDCLUBE,
+    J.SALARIO = H.SALARIO,
+    J.DATAINICIO = H.DATAINICIO
+FROM Futebol.Jogador AS J
+INNER JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR
+WHERE H.IDHISTORICO = 1;
+*/
+
+
+-- Garantir que apenas um registo de historico
+-- corresponde ao jogador durante a recuperacao.
+
+
+-- ============================================================
+-- 25. FUNCOES ESCALARES
+-- T-SQL - User-defined functions
+-- ============================================================
+
+-- Uma funcao escalar devolve um unico valor.
+--
+-- CREATE FUNCTION cria a funcao.
+-- Os parametros sao declarados entre parenteses.
+-- RETURNS indica o tipo de dados devolvido.
+-- RETURN devolve o resultado.
+--
+-- CREATE FUNCTION deve iniciar um batch.
+
+
+-- FUNCAO QUE SOMA DOIS NUMEROS
+
+GO
+
+CREATE FUNCTION Futebol.fn_Soma (
+    @A INT,
+    @B INT
+)
+RETURNS INT
+AS
+BEGIN
+
+    RETURN @A + @B;
+
+END;
+
+GO
+
+
+-- EXECUTAR FUNCAO
+
+SELECT Futebol.fn_Soma(10, 20) AS RESULTADO;
+
+
+-- FUNCAO QUE CALCULA SALARIO ANUAL
+
+GO
+
+CREATE FUNCTION Futebol.fn_SalarioAnual (
+    @Salario DECIMAL(10,2)
+)
+RETURNS DECIMAL(12,2)
+AS
+BEGIN
+
+    RETURN @Salario * 12;
+
+END;
+
+GO
+
+
+-- UTILIZAR FUNCAO NUM SELECT
+
+SELECT
+    NOME,
+    SALARIO,
+    Futebol.fn_SalarioAnual(SALARIO) AS SALARIO_ANUAL
+FROM Futebol.Jogador;
+
+
+-- FUNCAO QUE DEVOLVE O SALARIO DE UM JOGADOR
+
+GO
+
+CREATE FUNCTION Futebol.fn_SalarioJogador (
+    @ID INT
+)
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+
+    DECLARE @Salario DECIMAL(10,2);
+
+    SELECT @Salario = SALARIO
+    FROM Futebol.Jogador
+    WHERE IDJOGADOR = @ID;
+
+    RETURN @Salario;
+
+END;
+
+GO
+
+
+SELECT Futebol.fn_SalarioJogador(1);
+
+
+-- FUNCAO QUE CONTA O HISTORICO DE UM JOGADOR
+
+GO
+
+CREATE FUNCTION Futebol.fn_TotalHistorico (
+    @ID INT
+)
+RETURNS INT
+AS
+BEGIN
+
+    DECLARE @Total INT;
+
+    SELECT @Total = COUNT(*)
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = @ID;
+
+    RETURN @Total;
+
+END;
+
+GO
+
+
+SELECT Futebol.fn_TotalHistorico(1);
+
+
+SELECT
+    NOME,
+    Futebol.fn_TotalHistorico(IDJOGADOR) AS TOTAL_HISTORICO
+FROM Futebol.Jogador;
+
+
+-- FUNCAO QUE VERIFICA SE UM JOGADOR TEM HISTORICO
+
+GO
+
+CREATE FUNCTION Futebol.fn_TemHistorico (
+    @ID INT
+)
+RETURNS BIT
+AS
+BEGIN
+
+    DECLARE @Resultado BIT = 0;
+
+    IF EXISTS (
+        SELECT 1
+        FROM Futebol.Historico
+        WHERE IDJOGADOR = @ID
+    )
+    BEGIN
+        SET @Resultado = 1;
+    END;
+
+    RETURN @Resultado;
+
+END;
+
+GO
+
+
+SELECT
+    NOME,
+    Futebol.fn_TemHistorico(IDJOGADOR) AS TEM_HISTORICO
+FROM Futebol.Jogador;
+
+
+-- FUNCAO QUE CLASSIFICA UM SALARIO
+
+GO
+
+CREATE FUNCTION Futebol.fn_ClassificarSalario (
+    @Salario DECIMAL(10,2)
+)
+RETURNS VARCHAR(20)
+AS
+BEGIN
+
+    DECLARE @Resultado VARCHAR(20);
+
+    IF @Salario >= 50000
+        SET @Resultado = 'Alto';
+    ELSE IF @Salario >= 20000
+        SET @Resultado = 'Medio';
+    ELSE
+        SET @Resultado = 'Baixo';
+
+    RETURN @Resultado;
+
+END;
+
+GO
+
+
+SELECT
+    NOME,
+    SALARIO,
+    Futebol.fn_ClassificarSalario(SALARIO) AS CLASSE
+FROM Futebol.Jogador;
+
+
+-- ALTERAR UMA FUNCAO
+
+GO
+
+ALTER FUNCTION Futebol.fn_Soma (
+    @A INT,
+    @B INT
+)
+RETURNS INT
+AS
+BEGIN
+
+    RETURN @A + @B;
+
+END;
+
+GO
+
+
+-- ELIMINAR UMA FUNCAO
+
+/*
+DROP FUNCTION Futebol.fn_Soma;
+*/
+
+
+-- IMPORTANTE:
+-- Uma funcao definida pelo utilizador nao pode
+-- alterar diretamente os dados das tabelas permanentes.
+-- Nao permite BEGIN TRANSACTION, COMMIT ou ROLLBACK.
+-- Nao permite TRY CATCH nem THROW.
+-- Pode consultar tabelas e devolver resultados.
+
+
+-- ============================================================
+-- 26. FUNCOES QUE DEVOLVEM TABELAS
+-- ============================================================
+
+-- Table-valued function (TVF).
+-- Devolve uma tabela em vez de um unico valor.
+-- E utilizada no FROM.
+
+
+-- INLINE TABLE-VALUED FUNCTION
+
+GO
+
+CREATE FUNCTION Futebol.fn_JogadoresClube (
+    @IDClube INT
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        IDJOGADOR,
+        NOME,
+        SALARIO
+    FROM Futebol.Jogador
+    WHERE IDCLUBE = @IDClube
+);
+
+GO
+
+
+-- CONSULTAR FUNCAO
+
+SELECT *
+FROM Futebol.fn_JogadoresClube(1);
+
+
+-- CONSULTAR COM FILTRO
+
+SELECT *
+FROM Futebol.fn_JogadoresClube(1)
+WHERE SALARIO > 20000;
+
+
+-- FUNCAO QUE DEVOLVE HISTORICO DE UM JOGADOR
+
+GO
+
+CREATE FUNCTION Futebol.fn_HistoricoJogador (
+    @ID INT
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT *
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = @ID
+);
+
+GO
+
+
+SELECT *
+FROM Futebol.fn_HistoricoJogador(1);
+
+
+-- MULTI-STATEMENT TABLE-VALUED FUNCTION
+-- Permite varias instrucoes e uma tabela de retorno.
+
+
+GO
+
+CREATE FUNCTION Futebol.fn_JogadoresSalario (
+    @SalarioMinimo DECIMAL(10,2)
+)
+RETURNS @Resultado TABLE (
+    IDJOGADOR INT,
+    NOME VARCHAR(100),
+    SALARIO DECIMAL(10,2)
+)
+AS
+BEGIN
+
+    INSERT INTO @Resultado
+        (IDJOGADOR, NOME, SALARIO)
+    SELECT
+        IDJOGADOR,
+        NOME,
+        SALARIO
+    FROM Futebol.Jogador
+    WHERE SALARIO >= @SalarioMinimo;
+
+    RETURN;
+
+END;
+
+GO
+
+
+SELECT *
+FROM Futebol.fn_JogadoresSalario(30000);
+
+
+-- DIFERENCAS:
+--
+-- Funcao escalar:
+-- RETURNS INT, VARCHAR, DECIMAL, etc.
+-- Utilizada normalmente no SELECT.
+--
+-- Inline TVF:
+-- RETURNS TABLE
+-- RETURN (SELECT ...)
+-- Utilizada no FROM.
+--
+-- Multi-statement TVF:
+-- RETURNS @Tabela TABLE (...)
+-- BEGIN ... RETURN; END
+-- Utilizada no FROM.
+
+
+-- ============================================================
+-- 27. STORED PROCEDURES
+-- Conteudo complementar de T-SQL
+-- ============================================================
+
+-- Uma procedure e um conjunto de instrucoes guardadas.
+-- Pode receber parametros.
+-- Pode executar INSERT, UPDATE e DELETE.
+-- E executada com EXEC ou EXECUTE.
+
+
+GO
+
+CREATE PROCEDURE Futebol.sp_ListarJogadores
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    SELECT *
+    FROM Futebol.Jogador;
+
+END;
+
+GO
+
+
+-- EXECUTAR PROCEDURE
+
+EXEC Futebol.sp_ListarJogadores;
+
+
+-- PROCEDURE COM PARAMETROS
+
+GO
+
+CREATE PROCEDURE Futebol.sp_ConsultarJogador
+    @ID INT
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    SELECT *
+    FROM Futebol.Jogador
+    WHERE IDJOGADOR = @ID;
+
+END;
+
+GO
+
+
+EXEC Futebol.sp_ConsultarJogador 1;
+
+EXEC Futebol.sp_ConsultarJogador @ID = 2;
+
+
+-- PROCEDURE PARA ALTERAR SALARIO
+
+GO
+
+CREATE PROCEDURE Futebol.sp_AlterarSalario
+    @ID INT,
+    @NovoSalario DECIMAL(10,2)
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF @NovoSalario IS NULL OR @NovoSalario <= 0
+    BEGIN
+        THROW 50001, 'Salario invalido', 1;
+    END;
+
+    UPDATE Futebol.Jogador
+    SET SALARIO = @NovoSalario
+    WHERE IDJOGADOR = @ID;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        THROW 50002, 'Jogador inexistente', 1;
+    END;
+
+END;
+
+GO
+
+
+EXEC Futebol.sp_AlterarSalario
+    @ID = 1,
+    @NovoSalario = 60000;
+
+
+-- PROCEDURE COM PARAMETRO OUTPUT
+
+GO
+
+CREATE PROCEDURE Futebol.sp_TotalJogadores
+    @Total INT OUTPUT
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    SELECT @Total = COUNT(*)
+    FROM Futebol.Jogador;
+
+END;
+
+GO
+
+
+DECLARE @Resultado INT;
+
+EXEC Futebol.sp_TotalJogadores
+    @Total = @Resultado OUTPUT;
+
+SELECT @Resultado AS TOTAL;
+
+GO
+
+
+-- ALTERAR PROCEDURE
+
+/*
+ALTER PROCEDURE Futebol.sp_ListarJogadores
+AS
+BEGIN
+
+    SELECT NOME, SALARIO
+    FROM Futebol.Jogador;
+
+END;
+GO
+*/
+
+
+-- ELIMINAR PROCEDURE
+
+/*
+DROP PROCEDURE Futebol.sp_ListarJogadores;
+*/
+
+
+-- FUNCAO VS PROCEDURE:
+--
+-- Funcao:
+-- Pode devolver valor ou tabela.
+-- Pode ser utilizada num SELECT ou FROM.
+-- Nao altera tabelas permanentes diretamente.
+--
+-- Procedure:
+-- Executada com EXEC.
+-- Pode alterar dados.
+-- Pode utilizar transacoes e tratamento de erros.
+-- Pode devolver resultados e parametros OUTPUT.
+
+
+-- ============================================================
+-- 28. TRIGGERS
+-- ============================================================
+
+-- Um trigger e um objeto executado automaticamente
+-- quando ocorre um determinado evento.
+--
+-- Eventos DML:
+-- INSERT
+-- UPDATE
+-- DELETE
+--
+-- AFTER:
+-- Executado depois da operacao e das validacoes aplicaveis.
+--
+-- FOR:
+-- Sinonimo de AFTER nos triggers DML.
+--
+-- INSTEAD OF:
+-- Executado em substituicao da operacao original.
+--
+-- Um trigger nao necessita de ser executado com EXEC.
+-- E ativado automaticamente pela operacao associada.
+
+
+-- SINTAXE GERAL
+
+/*
+CREATE TRIGGER schema.nome_trigger
+ON schema.tabela
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    -- Instrucoes.
+
+END;
+GO
+*/
+
+
+-- SET NOCOUNT ON:
+-- Evita mensagens adicionais sobre linhas afetadas.
+-- Nao impede a atualizacao de @@ROWCOUNT.
+
+
+-- ============================================================
+-- 29. INSERTED E DELETED
+-- ============================================================
+
+-- INSERTED e DELETED sao tabelas logicas
+-- disponibilizadas dentro dos triggers.
+--
+-- INSERT:
+-- INSERTED possui os novos registos.
+-- DELETED esta vazia.
+--
+-- UPDATE:
+-- INSERTED possui os valores novos.
+-- DELETED possui os valores antigos.
+--
+-- DELETE:
+-- INSERTED esta vazia.
+-- DELETED possui os registos eliminados.
+--
+-- Exemplo de UPDATE:
+--
+-- Antes:
+-- IDJOGADOR = 1
+-- SALARIO = 50000
+--
+-- Depois:
+-- IDJOGADOR = 1
+-- SALARIO = 60000
+--
+-- DELETED.SALARIO = 50000
+-- INSERTED.SALARIO = 60000
+--
+-- Um trigger e executado por instrucao,
+-- nao necessariamente uma vez por registo.
+--
+-- INSERTED e DELETED podem possuir varias linhas.
+-- Utilizar JOIN, INSERT INTO SELECT e EXISTS
+-- para tratar todos os registos afetados.
+
+
+-- ============================================================
+-- 30. TRIGGER DE INSERT
+-- ============================================================
+
+-- Criar tabela de auditoria.
+
+CREATE TABLE Futebol.Auditoria (
+    IDAUDITORIA INT IDENTITY(1,1) PRIMARY KEY,
+    IDJOGADOR INT,
+    OPERACAO VARCHAR(20),
+    SALARIO_ANTIGO DECIMAL(10,2),
+    SALARIO_NOVO DECIMAL(10,2),
+    DATAOPERACAO DATETIME2 DEFAULT SYSDATETIME()
+);
+
+
+-- REGISTAR AUTOMATICAMENTE JOGADORES INSERIDOS
+
+GO
+
+CREATE TRIGGER Futebol.trg_InsertJogador
+ON Futebol.Jogador
+AFTER INSERT
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO Futebol.Auditoria
+        (IDJOGADOR, OPERACAO, SALARIO_NOVO)
+    SELECT
+        IDJOGADOR,
+        'INSERT',
+        SALARIO
+    FROM inserted;
+
+END;
+
+GO
+
+
+-- TESTAR TRIGGER
+
+INSERT INTO Futebol.Jogador
+    (IDJOGADOR, NOME, IDCLUBE, SALARIO, DATAINICIO)
+VALUES
+    (10, 'Pedro', 1, 20000, '2025-01-01'),
+    (11, 'Joao', 2, 25000, '2025-01-01');
+
+
+-- O trigger regista ambos os jogadores.
+
+SELECT *
+FROM Futebol.Auditoria;
+
+
+-- ============================================================
+-- 31. TRIGGER DE UPDATE
+-- ============================================================
+
+-- Registar automaticamente alteracoes de salario.
+-- DELETED possui o salario antigo.
+-- INSERTED possui o salario novo.
+
+
+GO
+
+CREATE TRIGGER Futebol.trg_UpdateSalario
+ON Futebol.Jogador
+AFTER UPDATE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO Futebol.Auditoria
+        (
+            IDJOGADOR,
+            OPERACAO,
+            SALARIO_ANTIGO,
+            SALARIO_NOVO
+        )
+    SELECT
+        I.IDJOGADOR,
+        'UPDATE',
+        D.SALARIO,
+        I.SALARIO
+    FROM inserted AS I
+    INNER JOIN deleted AS D
+    ON I.IDJOGADOR = D.IDJOGADOR
+    WHERE I.SALARIO <> D.SALARIO;
+
+END;
+
+GO
+
+
+-- TESTAR TRIGGER
+
+UPDATE Futebol.Jogador
+SET SALARIO = SALARIO + 1000
+WHERE IDJOGADOR = 10;
+
+
+SELECT *
+FROM Futebol.Auditoria;
+
+
+-- TESTAR COM VARIOS REGISTOS
+
+UPDATE Futebol.Jogador
+SET SALARIO = SALARIO + 500
+WHERE IDCLUBE = 1;
+
+
+SELECT *
+FROM Futebol.Auditoria;
+
+
+-- UPDATE(coluna):
+-- Verifica se a coluna foi alvo de INSERT ou UPDATE.
+-- Nao garante que o valor mudou.
+
+
+-- EXEMPLO ALTERNATIVO
+
+/*
+CREATE TRIGGER Futebol.trg_VerificarSalario
+ON Futebol.Jogador
+AFTER UPDATE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF UPDATE(SALARIO)
+    BEGIN
+        PRINT 'Coluna salario incluida no UPDATE';
+    END;
+
+END;
+GO
+*/
+
+
+-- Para verificar uma alteracao real,
+-- comparar INSERTED com DELETED.
+
+
+-- ============================================================
+-- 32. TRIGGER DE DELETE
+-- ============================================================
+
+-- Registar automaticamente jogadores eliminados.
+
+
+GO
+
+CREATE TRIGGER Futebol.trg_DeleteJogador
+ON Futebol.Jogador
+AFTER DELETE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO Futebol.Auditoria
+        (IDJOGADOR, OPERACAO, SALARIO_ANTIGO)
+    SELECT
+        IDJOGADOR,
+        'DELETE',
+        SALARIO
+    FROM deleted;
+
+END;
+
+GO
+
+
+-- TESTAR TRIGGER
+
+DELETE FROM Futebol.Jogador
+WHERE IDJOGADOR = 11;
+
+
+SELECT *
+FROM Futebol.Auditoria;
+
+
+-- O trigger AFTER DELETE apenas e executado
+-- se a eliminacao ultrapassar as restricoes aplicaveis.
+--
+-- Uma FOREIGN KEY pode impedir a eliminacao
+-- antes da execucao do trigger AFTER.
+
+
+-- ============================================================
+-- 33. TRIGGER DE VALIDACAO
+-- ============================================================
+
+-- Impedir que o salario ultrapasse 100000.
+-- Para esta regra simples, CHECK seria mais adequado.
+-- O exemplo demonstra validacao com triggers.
+
+
+GO
+
+CREATE TRIGGER Futebol.trg_ValidarSalario
+ON Futebol.Jogador
+AFTER INSERT, UPDATE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted
+        WHERE SALARIO > 100000
+    )
+    BEGIN
+
+        THROW 50001, 'Salario superior ao limite', 1;
+
+    END;
+
+END;
+
+GO
+
+
+-- TESTAR TRIGGER COM TRATAMENTO DE ERROS
+
+BEGIN TRY
+
+    UPDATE Futebol.Jogador
+    SET SALARIO = 150000
+    WHERE IDJOGADOR = 1;
+
+END TRY
+BEGIN CATCH
+
+    IF @@TRANCOUNT > 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- Confirmar que o salario nao foi alterado.
+
+SELECT *
+FROM Futebol.Jogador
+WHERE IDJOGADOR = 1;
+
+
+-- ALTERNATIVA COM ROLLBACK EXPLICITO
+
+/*
+CREATE TRIGGER Futebol.trg_ValidarSalarioAlternativo
+ON Futebol.Jogador
+AFTER UPDATE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted
+        WHERE SALARIO > 100000
+    )
+    BEGIN
+
+        ROLLBACK TRANSACTION;
+
+        THROW 50002, 'Salario invalido', 1;
+
+    END;
+
+END;
+GO
+*/
+
+
+-- Um trigger executa no contexto da transacao
+-- da operacao que o ativou.
+--
+-- ROLLBACK dentro do trigger pode desfazer
+-- toda a transacao que o ativou.
+
+
+-- ============================================================
+-- 34. TRIGGER DE HISTORICO
+-- ============================================================
+
+-- Quando um jogador muda de clube,
+-- guardar automaticamente os seus dados antigos.
+--
+-- Utilizar DELETED para recuperar os dados anteriores.
+-- Utilizar INSERTED para recuperar os novos dados.
+--
+-- A data de inicio do novo contrato deve ser
+-- atualizada na mesma instrucao que muda o clube.
+
+
+GO
+
+CREATE TRIGGER Futebol.trg_HistoricoClube
+ON Futebol.Jogador
+AFTER UPDATE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO Futebol.Historico
+        (IDJOGADOR, IDCLUBE, SALARIO, DATAINICIO, DATAFIM)
+    SELECT
+        D.IDJOGADOR,
+        D.IDCLUBE,
+        D.SALARIO,
+        D.DATAINICIO,
+        I.DATAINICIO
+    FROM deleted AS D
+    INNER JOIN inserted AS I
+    ON D.IDJOGADOR = I.IDJOGADOR
+    WHERE
+        D.IDCLUBE <> I.IDCLUBE
+        OR (
+            D.IDCLUBE IS NULL
+            AND I.IDCLUBE IS NOT NULL
+        )
+        OR (
+            D.IDCLUBE IS NOT NULL
+            AND I.IDCLUBE IS NULL
+        );
+
+END;
+
+GO
+
+
+-- TESTAR TRIGGER
+
+UPDATE Futebol.Jogador
+SET
+    IDCLUBE = 4,
+    DATAINICIO = CAST(GETDATE() AS DATE)
+WHERE IDJOGADOR = 1;
+
+
+-- CONSULTAR HISTORICO
+
+SELECT *
+FROM Futebol.Historico
+WHERE IDJOGADOR = 1;
+
+
+-- CONSULTAR VIEW
+
+SELECT *
+FROM Futebol.vw_HistoricoCompleto
+WHERE IDJOGADOR = 1
+ORDER BY DATAINICIO DESC;
+
+
+-- IMPORTANTE:
+-- Se existir um trigger que guarda o historico,
+-- nao guardar manualmente o mesmo historico
+-- antes do UPDATE, pois pode criar duplicados.
+
+
+-- ============================================================
+-- TRIGGER PARA VARIOS EVENTOS
+-- ============================================================
+
+-- Exemplo independente de trigger que identifica
+-- INSERT, UPDATE e DELETE.
+
+
+/*
+CREATE TRIGGER Futebol.trg_Operacoes
+ON Futebol.Jogador
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF EXISTS (SELECT 1 FROM inserted)
+       AND EXISTS (SELECT 1 FROM deleted)
+    BEGIN
+        PRINT 'UPDATE';
+    END
+    ELSE IF EXISTS (SELECT 1 FROM inserted)
+    BEGIN
+        PRINT 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT 1 FROM deleted)
+    BEGIN
+        PRINT 'DELETE';
+    END;
+
+END;
+GO
+*/
+
+
+-- ============================================================
+-- 35. INSTEAD OF
+-- ============================================================
+
+-- INSTEAD OF executa em substituicao da operacao original.
+-- Se nao implementarmos a operacao dentro do trigger,
+-- a operacao original nao sera realizada.
+
+
+-- IMPEDIR ELIMINACAO DE CLUBES
+
+GO
+
+CREATE TRIGGER Futebol.trg_ImpedirDeleteClube
+ON Futebol.Clube
+INSTEAD OF DELETE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF EXISTS (SELECT 1 FROM deleted)
+    BEGIN
+        THROW 50003, 'Nao e permitido eliminar clubes', 1;
+    END;
+
+END;
+
+GO
+
+
+-- TESTAR
+
+BEGIN TRY
+
+    DELETE FROM Futebol.Clube
+    WHERE IDCLUBE = 4;
+
+END TRY
+BEGIN CATCH
+
+    IF @@TRANCOUNT > 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+
+GO
+
+
+-- INSTEAD OF DELETE COM ELIMINACAO CONDICIONAL
+-- Exemplo alternativo.
+
+/*
+CREATE TRIGGER Futebol.trg_DeleteCondicional
+ON Futebol.Clube
+INSTEAD OF DELETE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM deleted AS D
+        INNER JOIN Futebol.Jogador AS J
+        ON D.IDCLUBE = J.IDCLUBE
+    )
+    BEGIN
+        THROW 50004, 'Clube possui jogadores', 1;
+    END;
+
+    DELETE C
+    FROM Futebol.Clube AS C
+    INNER JOIN deleted AS D
+    ON C.IDCLUBE = D.IDCLUBE;
+
+END;
+GO
+*/
+
+
+-- Nao criar simultaneamente dois triggers
+-- INSTEAD OF para o mesmo evento na mesma tabela.
+
+
+-- DESATIVAR TRIGGER
+
+DISABLE TRIGGER Futebol.trg_HistoricoClube
+ON Futebol.Jogador;
+
+
+-- ATIVAR TRIGGER
+
+ENABLE TRIGGER Futebol.trg_HistoricoClube
+ON Futebol.Jogador;
+
+
+-- DESATIVAR TODOS OS TRIGGERS DE UMA TABELA
+
+/*
+DISABLE TRIGGER ALL
+ON Futebol.Jogador;
+*/
+
+
+-- ATIVAR TODOS OS TRIGGERS DE UMA TABELA
+
+/*
+ENABLE TRIGGER ALL
+ON Futebol.Jogador;
+*/
+
+
+-- ALTERAR TRIGGER
+
+/*
+ALTER TRIGGER Futebol.trg_InsertJogador
+ON Futebol.Jogador
+AFTER INSERT
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO Futebol.Auditoria
+        (IDJOGADOR, OPERACAO, SALARIO_NOVO)
+    SELECT
+        IDJOGADOR,
+        'INSERT',
+        SALARIO
+    FROM inserted;
+
+END;
+GO
+*/
+
+
+-- ELIMINAR TRIGGER
+
+/*
+DROP TRIGGER Futebol.trg_InsertJogador;
+*/
+
+
+-- CONSULTAR TRIGGERS EXISTENTES
+
+SELECT
+    NAME,
+    IS_DISABLED
+FROM sys.triggers
+WHERE parent_id = OBJECT_ID('Futebol.Jogador');
+
+
+-- ============================================================
+-- 36. TABELAS TEMPORARIAS
+-- Conteudo complementar de T-SQL
+-- ============================================================
+
+-- Tabelas temporarias locais comecam por #.
+-- Normalmente existem durante a sessao.
+
+
+CREATE TABLE #Jogadores (
+    ID INT,
+    NOME VARCHAR(100)
+);
+
+
+INSERT INTO #Jogadores
+    (ID, NOME)
+SELECT
+    IDJOGADOR,
+    NOME
+FROM Futebol.Jogador;
+
+
+SELECT *
+FROM #Jogadores;
+
+
+DROP TABLE #Jogadores;
+
+
+-- CRIAR TABELA TEMPORARIA COM SELECT INTO
+
+SELECT *
+INTO #Salarios
+FROM Futebol.Jogador
+WHERE SALARIO > 30000;
+
+
+SELECT *
+FROM #Salarios;
+
+
+DROP TABLE #Salarios;
+
+
+-- #Tabela:
+-- Tabela temporaria local.
+--
+-- ##Tabela:
+-- Tabela temporaria global.
+-- Pode ser acessivel por outras sessoes.
+
+
+-- ============================================================
+-- 37. VARIAVEIS DO TIPO TABLE
+-- Conteudo complementar de T-SQL
+-- ============================================================
+
+DECLARE @Jogadores TABLE (
+    ID INT,
+    NOME VARCHAR(100),
+    SALARIO DECIMAL(10,2)
+);
+
+
+INSERT INTO @Jogadores
+    (ID, NOME, SALARIO)
+SELECT
+    IDJOGADOR,
+    NOME,
+    SALARIO
+FROM Futebol.Jogador;
+
+
+SELECT *
+FROM @Jogadores;
+
+GO
+
+
+-- Uma variavel TABLE possui scope limitado.
+-- Deixa de existir no final do batch.
+-- Nao necessita de DROP TABLE.
+
+
+-- ============================================================
+-- 38. CTE
+-- Conteudo complementar de consultas
+-- ============================================================
+
+-- CTE significa Common Table Expression.
+-- Permite atribuir um nome a uma consulta temporaria.
+-- Existe apenas para a instrucao seguinte.
+
+
+;WITH JogadoresCaros AS
+(
+    SELECT *
+    FROM Futebol.Jogador
+    WHERE SALARIO > 30000
+)
+SELECT *
+FROM JogadoresCaros;
+
+
+-- CTE COM AGRUPAMENTO
+
+;WITH Totais AS
+(
+    SELECT
+        IDJOGADOR,
+        COUNT(*) AS TOTAL
+    FROM Futebol.Historico
+    GROUP BY IDJOGADOR
+)
+SELECT *
+FROM Totais
+WHERE TOTAL > 1;
+
+
+-- A CTE nao e uma tabela permanente.
+-- Nao pode ser consultada em instrucoes posteriores
+-- sem voltar a ser definida.
+
+
+-- ============================================================
+-- 39. CROSS APPLY E OUTER APPLY
+-- GitBook: Lesson 08 - Horizontal join syntax
+-- ============================================================
+
+-- APPLY permite que uma expressao do lado direito
+-- utilize valores da tabela do lado esquerdo.
+
+
+-- CROSS APPLY:
+-- Apenas conserva registos para os quais
+-- a expressao direita devolve resultados.
+
+SELECT
+    J.NOME,
+    H.IDCLUBE,
+    H.DATAFIM
+FROM Futebol.Jogador AS J
+CROSS APPLY (
+    SELECT TOP (1)
+        IDCLUBE,
+        DATAFIM
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = J.IDJOGADOR
+    ORDER BY DATAFIM DESC, IDHISTORICO DESC
+) AS H;
+
+
+-- OUTER APPLY:
+-- Conserva todos os registos da tabela esquerda.
+-- Quando nao existe resultado, apresenta NULL.
+
+SELECT
+    J.NOME,
+    H.IDCLUBE,
+    H.DATAFIM
+FROM Futebol.Jogador AS J
+OUTER APPLY (
+    SELECT TOP (1)
+        IDCLUBE,
+        DATAFIM
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = J.IDJOGADOR
+    ORDER BY DATAFIM DESC, IDHISTORICO DESC
+) AS H;
+
+
+-- APPLY COM FUNCAO QUE DEVOLVE TABELA
+
+SELECT
+    C.NOME AS CLUBE,
+    J.NOME AS JOGADOR
+FROM Futebol.Clube AS C
+CROSS APPLY Futebol.fn_JogadoresClube(C.IDCLUBE) AS J;
+
+
+-- UPDATE COM CROSS APPLY
+-- Recuperar o salario do ultimo registo de historico.
+-- Exemplo independente.
+
+/*
+UPDATE J
+SET SALARIO = H.SALARIO
+FROM Futebol.Jogador AS J
+CROSS APPLY (
+    SELECT TOP (1) SALARIO
+    FROM Futebol.Historico
+    WHERE IDJOGADOR = J.IDJOGADOR
+    ORDER BY DATAFIM DESC, IDHISTORICO DESC
+) AS H;
+*/
+
+
+-- DELETE COM JOIN
+-- Eliminar jogadores sem historico.
+-- Exemplo independente.
+
+/*
+DELETE J
+FROM Futebol.Jogador AS J
+LEFT JOIN Futebol.Historico AS H
+ON J.IDJOGADOR = H.IDJOGADOR
+WHERE H.IDHISTORICO IS NULL;
+*/
+
+
+-- ============================================================
+-- 40. LIMPEZA DOS OBJETOS CRIADOS
+-- ============================================================
+
+-- Eliminar primeiro os triggers.
+
+DROP TRIGGER Futebol.trg_InsertJogador;
+DROP TRIGGER Futebol.trg_UpdateSalario;
+DROP TRIGGER Futebol.trg_DeleteJogador;
+DROP TRIGGER Futebol.trg_ValidarSalario;
+DROP TRIGGER Futebol.trg_HistoricoClube;
+DROP TRIGGER Futebol.trg_ImpedirDeleteClube;
+
+
+-- Eliminar procedures.
+
+DROP PROCEDURE Futebol.sp_ListarJogadores;
+DROP PROCEDURE Futebol.sp_ConsultarJogador;
+DROP PROCEDURE Futebol.sp_AlterarSalario;
+DROP PROCEDURE Futebol.sp_TotalJogadores;
+
+
+-- Eliminar funcoes.
+
+DROP FUNCTION Futebol.fn_Soma;
+DROP FUNCTION Futebol.fn_SalarioAnual;
+DROP FUNCTION Futebol.fn_SalarioJogador;
+DROP FUNCTION Futebol.fn_TotalHistorico;
+DROP FUNCTION Futebol.fn_TemHistorico;
+DROP FUNCTION Futebol.fn_ClassificarSalario;
+DROP FUNCTION Futebol.fn_JogadoresClube;
+DROP FUNCTION Futebol.fn_HistoricoJogador;
+DROP FUNCTION Futebol.fn_JogadoresSalario;
+
+
+-- Eliminar views.
+
+DROP VIEW Futebol.vw_HistoricoCompleto;
+
+
+-- Eliminar tabelas respeitando dependencias.
+
+DROP TABLE Futebol.CopiaJogador;
+DROP TABLE Futebol.CopiaSalarios;
+DROP TABLE Futebol.Auditoria;
+DROP TABLE Futebol.Historico;
+DROP TABLE Futebol.Jogador;
+DROP TABLE Futebol.Clube;
+
+
+-- Eliminar schema.
+
+DROP SCHEMA Futebol;
+
+GO
+
+
+-- ============================================================
+-- 41. RESUMO RAPIDO DE SINTAXE
+-- ============================================================
+
+
+-- SUBQUERY NO WHERE
+
+/*
+SELECT *
+FROM Tabela1
+WHERE ID IN (
+    SELECT ID
+    FROM Tabela2
+);
+*/
+
+
+-- SUBQUERY CORRELACIONADA
+
+/*
+SELECT
+    A.ID,
+    (
+        SELECT B.NOME
+        FROM Tabela2 AS B
+        WHERE B.ID = A.ID
+    ) AS NOME
+FROM Tabela1 AS A;
+*/
+
+
+-- LEFT JOIN SEM CORRESPONDENCIA
+
+/*
+SELECT A.*
+FROM Tabela1 AS A
+LEFT JOIN Tabela2 AS B
+ON A.ID = B.ID
+WHERE B.ID IS NULL;
+*/
+
+
+-- CONTAR REGISTOS POR IDENTIFICADOR
+
+/*
+SELECT ID, COUNT(*) AS TOTAL
+FROM Tabela
+GROUP BY ID;
+*/
+
+
+-- ISNULL
+
+/*
+SELECT ISNULL(Coluna, 'Valor alternativo')
+FROM Tabela;
+*/
+
+
+-- CAST
+
+/*
+SELECT CAST(Coluna AS VARCHAR(20))
+FROM Tabela;
+*/
+
+
+-- UNION
+
+/*
+SELECT Coluna1, Coluna2
+FROM Tabela1
+
+UNION ALL
+
+SELECT Coluna1, Coluna2
+FROM Tabela2;
+*/
+
+
+-- VIEW
+
+/*
+GO
+CREATE VIEW schema.NomeView
+AS
+SELECT *
+FROM schema.Tabela;
+GO
+*/
+
+
+-- CONSULTAR VIEW
+
+/*
+SELECT *
+FROM schema.NomeView;
+*/
+
+
+-- INSERT INTO SELECT
+
+/*
+INSERT INTO TabelaDestino (Coluna1, Coluna2)
+SELECT Coluna1, Coluna2
+FROM TabelaOrigem;
+*/
+
+
+-- VARIAVEL
+
+/*
+DECLARE @ID INT = 1;
+*/
+
+
+-- ATRIBUIR VALOR
+
+/*
+SET @ID = 2;
+*/
+
+
+-- ATRIBUIR RESULTADO DE SELECT
+
+/*
+SELECT @ID = Coluna
+FROM Tabela
+WHERE Condicao;
+*/
+
+
+-- IF ELSE
+
+/*
+IF Condicao
+BEGIN
+
+    -- Instrucoes.
+
+END
+ELSE
+BEGIN
+
+    -- Instrucoes.
+
+END;
+*/
+
+
+-- WHILE
+
+/*
+WHILE Condicao
+BEGIN
+
+    -- Instrucoes.
+
+END;
+*/
+
+
+-- TRANSACAO
+
+/*
+BEGIN TRANSACTION;
+
+-- Instrucoes.
+
+COMMIT;
+*/
+
+
+-- TRANSACAO COM ROLLBACK
+
+/*
+BEGIN TRANSACTION;
+
+-- Instrucoes.
+
+ROLLBACK;
+*/
+
+
+-- TRY CATCH
+
+/*
+BEGIN TRY
+
+    -- Instrucoes.
+
+END TRY
+BEGIN CATCH
+
+    SELECT ERROR_MESSAGE();
+
+END CATCH;
+*/
+
+
+-- TRANSACAO COM TRY CATCH
+
+/*
+BEGIN TRY
+
+    BEGIN TRANSACTION;
+
+    -- Instrucoes.
+
+    COMMIT;
+
+END TRY
+BEGIN CATCH
+
+    IF @@TRANCOUNT <> 0
+    BEGIN
+        ROLLBACK;
+    END;
+
+    SELECT
+        ERROR_NUMBER() AS NUMERO,
+        ERROR_LINE() AS LINHA,
+        ERROR_MESSAGE() AS ERRO;
+
+END CATCH;
+*/
+
+
+-- THROW
+
+/*
+THROW 50001, 'Mensagem de erro', 1;
+*/
+
+
+-- FUNCAO ESCALAR
+
+/*
+GO
+
+CREATE FUNCTION schema.NomeFuncao (
+    @Parametro INT
+)
+RETURNS INT
+AS
+BEGIN
+
+    DECLARE @Resultado INT;
+
+    SET @Resultado = @Parametro * 2;
+
+    RETURN @Resultado;
+
+END;
+
+GO
+*/
+
+
+-- EXECUTAR FUNCAO ESCALAR
+
+/*
+SELECT schema.NomeFuncao(10);
+*/
+
+
+-- FUNCAO QUE DEVOLVE TABELA
+
+/*
+GO
+
+CREATE FUNCTION schema.NomeFuncao (
+    @Parametro INT
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT *
+    FROM schema.Tabela
+    WHERE ID = @Parametro
+);
+
+GO
+*/
+
+
+-- CONSULTAR FUNCAO QUE DEVOLVE TABELA
+
+/*
+SELECT *
+FROM schema.NomeFuncao(10);
+*/
+
+
+-- PROCEDURE
+
+/*
+GO
+
+CREATE PROCEDURE schema.NomeProcedure
+    @Parametro INT
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    SELECT *
+    FROM schema.Tabela
+    WHERE ID = @Parametro;
+
+END;
+
+GO
+*/
+
+
+-- EXECUTAR PROCEDURE
+
+/*
+EXEC schema.NomeProcedure @Parametro = 10;
+*/
+
+
+-- TRIGGER INSERT
+
+/*
+GO
+
+CREATE TRIGGER schema.NomeTrigger
+ON schema.Tabela
+AFTER INSERT
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO schema.Auditoria (ID)
+    SELECT ID
+    FROM inserted;
+
+END;
+
+GO
+*/
+
+
+-- TRIGGER UPDATE
+
+/*
+GO
+
+CREATE TRIGGER schema.NomeTrigger
+ON schema.Tabela
+AFTER UPDATE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO schema.Auditoria
+        (ID, ValorAntigo, ValorNovo)
+    SELECT
+        I.ID,
+        D.Valor,
+        I.Valor
+    FROM inserted AS I
+    INNER JOIN deleted AS D
+    ON I.ID = D.ID;
+
+END;
+
+GO
+*/
+
+
+-- TRIGGER DELETE
+
+/*
+GO
+
+CREATE TRIGGER schema.NomeTrigger
+ON schema.Tabela
+AFTER DELETE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    INSERT INTO schema.Auditoria (ID)
+    SELECT ID
+    FROM deleted;
+
+END;
+
+GO
+*/
+
+
+-- TRIGGER DE VALIDACAO
+
+/*
+GO
+
+CREATE TRIGGER schema.NomeTrigger
+ON schema.Tabela
+AFTER INSERT, UPDATE
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted
+        WHERE Valor < 0
+    )
+    BEGIN
+
+        THROW 50001, 'Valor invalido', 1;
+
+    END;
+
+END;
+
+GO
+*/
+
+
+-- ELIMINAR OBJETOS
+
+/*
+DROP VIEW schema.NomeView;
+
+DROP FUNCTION schema.NomeFuncao;
+
+DROP PROCEDURE schema.NomeProcedure;
+
+DROP TRIGGER schema.NomeTrigger;
+*/
+
+
+-- ============================================================
+-- 42. ERROS COMUNS
+-- ============================================================
+
+-- 01. Confundir INNER JOIN com LEFT JOIN.
+--
+-- INNER JOIN conserva correspondencias.
+-- LEFT JOIN conserva todos os registos da esquerda.
+
+
+-- 02. Utilizar = NULL.
+--
+-- ERRADO:
+-- WHERE Coluna = NULL
+--
+-- CERTO:
+-- WHERE Coluna IS NULL
+
+
+-- 03. Utilizar NOT IN quando a subquery devolve NULL.
+--
+-- Preferir NOT EXISTS quando existem valores nulos.
+
+
+-- 04. Uma subquery escalar devolver varias linhas.
+--
+-- Garantir unicidade ou utilizar uma agregacao.
+-- TOP (1) com ORDER BY quando se pretende um registo
+-- especifico, como o mais recente.
+
+
+-- 05. Utilizar COUNT(*) num LEFT JOIN quando se pretende
+-- contar apenas os registos correspondentes.
+--
+-- Utilizar COUNT(B.ID).
+
+
+-- 06. Utilizar UNION com numeros de colunas diferentes.
+--
+-- As consultas devem devolver o mesmo numero de colunas.
+
+
+-- 07. Utilizar UNION com tipos de dados incompativeis.
+--
+-- Utilizar CAST ou CONVERT quando necessario.
+
+
+-- 08. Confundir UNION com UNION ALL.
+--
+-- UNION elimina duplicados.
+-- UNION ALL conserva duplicados.
+
+
+-- 09. Colocar ORDER BY antes de UNION.
+--
+-- Normalmente ORDER BY aparece apenas no final.
+
+
+-- 10. Colocar ORDER BY diretamente numa VIEW normal.
+--
+-- Ordenar quando se consulta a VIEW.
+
+
+-- 11. Esquecer GO antes de CREATE VIEW,
+-- CREATE FUNCTION, CREATE PROCEDURE ou CREATE TRIGGER.
+
+
+-- 12. Utilizar uma variavel depois de GO.
+--
+-- A variavel deixa de existir apos o batch.
+
+
+-- 13. Esquecer SET ao atribuir valores.
+--
+-- SET @Variavel = 10;
+
+
+-- 14. Esquecer BEGIN e END quando IF ou WHILE
+-- deve executar varias instrucoes.
+
+
+-- 15. Criar um WHILE infinito.
+--
+-- Atualizar a variavel de controlo.
+
+
+-- 16. Esquecer COMMIT numa transacao.
+--
+-- A transacao pode ficar aberta.
+
+
+-- 17. Executar ROLLBACK quando nao existe transacao.
+--
+-- Verificar @@TRANCOUNT ou XACT_STATE().
+
+
+-- 18. Colocar GO entre BEGIN TRY e BEGIN CATCH.
+--
+-- TRY e CATCH devem estar no mesmo batch.
+
+
+-- 19. Esquecer ROLLBACK no CATCH.
+--
+-- As alteracoes anteriores podem ficar pendentes.
+
+
+-- 20. Atualizar os dados antes de guardar o historico.
+--
+-- Primeiro guardar os valores antigos.
+-- Depois atualizar os valores atuais.
+
+
+-- 21. Recuperar varios registos de historico
+-- numa subquery que deve devolver apenas um.
+
+
+-- 22. Eliminar todos os registos de historico
+-- quando se pretende eliminar apenas um.
+--
+-- Utilizar o identificador do registo de historico.
+
+
+-- 23. Confundir RETURN com SELECT numa funcao escalar.
+--
+-- RETURN devolve o resultado da funcao.
+
+
+-- 24. Esquecer RETURNS numa funcao.
+
+
+-- 25. Executar uma funcao escalar com a sintaxe
+-- de uma procedure.
+--
+-- Utilizar SELECT schema.Funcao(...).
+
+
+-- 26. Consultar uma funcao que devolve tabela
+-- como se fosse uma funcao escalar.
+--
+-- Utilizar SELECT * FROM schema.Funcao(...).
+
+
+-- 27. Tentar alterar tabelas permanentes
+-- dentro de uma funcao definida pelo utilizador.
+
+
+-- 28. Confundir INSERTED com DELETED.
+--
+-- INSERTED = Valores novos.
+-- DELETED = Valores antigos.
+
+
+-- 29. Assumir que INSERTED possui apenas uma linha.
+--
+-- Um INSERT, UPDATE ou DELETE pode afetar varias linhas.
+-- Utilizar operacoes sobre conjuntos.
+
+
+-- 30. Utilizar apenas UPDATE(Coluna)
+-- para verificar se o valor mudou.
+--
+-- Comparar INSERTED com DELETED.
+
+
+-- 31. Esquecer valores NULL ao comparar colunas.
+--
+-- NULL <> valor nao devolve TRUE.
+-- Verificar IS NULL e IS NOT NULL quando necessario.
+
+
+-- 32. Executar manualmente um trigger.
+--
+-- Os triggers sao ativados automaticamente.
+
+
+-- 33. Criar um trigger que altera a propria tabela
+-- sem considerar recursividade e efeitos adicionais.
+
+
+-- 34. Criar varios triggers com a mesma responsabilidade.
+--
+-- Pode provocar duplicacao de registos.
+
+
+-- 35. Confundir AFTER com INSTEAD OF.
+--
+-- AFTER executa depois da operacao.
+-- INSTEAD OF substitui a operacao.
+
+
+-- 36. Utilizar TRUNCATE esperando ativar
+-- um trigger de DELETE.
+--
+-- TRUNCATE TABLE nao ativa triggers DML de DELETE.
+
+
+-- 37. Esquecer que ROLLBACK num trigger
+-- pode desfazer a transacao que o ativou.
+
+
+-- 38. Guardar o historico manualmente e por trigger.
+--
+-- Pode duplicar o historico.
+
+
+-- 39. Utilizar PRINT quando se pretende devolver
+-- um conjunto de resultados.
+--
+-- PRINT apresenta mensagens.
+-- SELECT devolve resultados.
+
+
+-- 40. Esquecer de testar INSERT, UPDATE e DELETE
+-- com varios registos em simultaneo.
+
+
+-- ============================================================
+-- INDICE DE CONTEUDOS DO GITBOOK
+-- ============================================================
+
+-- LESSON 04 - GROUP FUNCTIONS AND SET OPERATORS
+--
+-- COUNT
+-- SUM
+-- AVG
+-- MAX
+-- MIN
+-- GROUP BY
+-- HAVING
+-- UNION
+-- UNION ALL
+-- INTERSECT
+-- EXCEPT
+
+
+-- LESSON 05 - DDL BASE SYNTAX AND OBJECTS
+--
+-- CREATE
+-- Data types
+-- ALTER
+-- DROP
+-- Views
+-- Indexes
+-- Insert data from queries
+
+
+-- LESSON 06 - CONSTRAINTS
+--
+-- PRIMARY KEY
+-- UNIQUE and alternate keys
+-- CHECK
+
+
+-- LESSON 07 - REFERENTIAL INTEGRITY AND FOREIGN KEYS
+--
+-- Referential integrity
+-- Applying references with foreign keys
+-- More on dependencies: data integrity
+
+
+-- LESSON 08
+--
+-- What is a join?
+-- JOIN vs. Nested queries
+-- Horizontal join syntax
+-- Equijoin and inner join
+-- Outer joins
+-- Self join and more than two tables
+-- APPLY and CROSS APPLY
+
+
+-- OUTROS CONTEUDOS DE T-SQL
+--
+-- Variables
+-- Control of flow
+-- Transactions
+-- Error handling
+-- User-defined functions
+-- Scalar functions
+-- Table-valued functions
+-- Stored procedures
+-- DML triggers
+-- INSERTED and DELETED
+
+
+-- ============================================================
+-- CHECKLIST DE ESTUDO
+-- ============================================================
+
+-- [ ] INNER JOIN
+-- [ ] LEFT JOIN
+-- [ ] COUNT
+-- [ ] COUNT DISTINCT
+-- [ ] GROUP BY
+-- [ ] HAVING
+-- [ ] Subquery no SELECT
+-- [ ] Subquery no WHERE
+-- [ ] Subquery no FROM
+-- [ ] Subquery correlacionada
+-- [ ] IN
+-- [ ] NOT IN
+-- [ ] EXISTS
+-- [ ] NOT EXISTS
+-- [ ] ISNULL
+-- [ ] COALESCE
+-- [ ] CONCAT
+-- [ ] CAST
+-- [ ] CONVERT
+-- [ ] CASE WHEN
+-- [ ] UNION
+-- [ ] UNION ALL
+-- [ ] INTERSECT
+-- [ ] EXCEPT
+-- [ ] CREATE VIEW
+-- [ ] ALTER VIEW
+-- [ ] DROP VIEW
+-- [ ] INSERT INTO SELECT
+-- [ ] SELECT INTO
+-- [ ] DECLARE
+-- [ ] SET
+-- [ ] Variaveis com SELECT
+-- [ ] IF
+-- [ ] ELSE
+-- [ ] WHILE
+-- [ ] BREAK
+-- [ ] CONTINUE
+-- [ ] PRINT
+-- [ ] @@ROWCOUNT
+-- [ ] @@TRANCOUNT
+-- [ ] XACT_STATE()
+-- [ ] BEGIN TRANSACTION
+-- [ ] COMMIT
+-- [ ] ROLLBACK
+-- [ ] SAVE TRANSACTION
+-- [ ] BEGIN TRY
+-- [ ] END TRY
+-- [ ] BEGIN CATCH
+-- [ ] END CATCH
+-- [ ] ERROR_NUMBER()
+-- [ ] ERROR_MESSAGE()
+-- [ ] ERROR_LINE()
+-- [ ] THROW
+-- [ ] RAISERROR
+-- [ ] SET XACT_ABORT
+-- [ ] Guardar historico
+-- [ ] Recuperar historico
+-- [ ] CREATE FUNCTION
+-- [ ] RETURNS
+-- [ ] RETURN
+-- [ ] Funcoes escalares
+-- [ ] Inline table-valued functions
+-- [ ] Multi-statement table-valued functions
+-- [ ] ALTER FUNCTION
+-- [ ] DROP FUNCTION
+-- [ ] CREATE PROCEDURE
+-- [ ] EXEC
+-- [ ] OUTPUT
+-- [ ] CREATE TRIGGER
+-- [ ] AFTER INSERT
+-- [ ] AFTER UPDATE
+-- [ ] AFTER DELETE
+-- [ ] INSTEAD OF
+-- [ ] INSERTED
+-- [ ] DELETED
+-- [ ] UPDATE(coluna)
+-- [ ] Triggers de auditoria
+-- [ ] Triggers de validacao
+-- [ ] Triggers de historico
+-- [ ] ALTER TRIGGER
+-- [ ] DROP TRIGGER
+-- [ ] ENABLE TRIGGER
+-- [ ] DISABLE TRIGGER
+-- [ ] SET NOCOUNT ON
+-- [ ] Tabelas temporarias
+-- [ ] Variaveis TABLE
+-- [ ] CTE
+-- [ ] CROSS APPLY
+-- [ ] OUTER APPLY
+
+
+-- ============================================================
+-- FIM DO GUIA DE CONSULTA SQL SERVER
+-- ============================================================
